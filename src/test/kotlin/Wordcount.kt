@@ -45,7 +45,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().run("-c", "test.txt")
+            WordCount().main(listOf("-c", "test.txt"))
 
             // Then
             assertEquals("342190 test.txt\n", stdOut.toString())
@@ -59,7 +59,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().run("-l", "test.txt")
+            WordCount().main(listOf("-l", "test.txt"))
 
             // Then
             assertEquals("7145 test.txt\n", stdOut.toString())
@@ -73,7 +73,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().run("-w", "test.txt")
+            WordCount().main(listOf("-w", "test.txt"))
 
             // Then
             assertEquals("58164 test.txt\n", stdOut.toString())
