@@ -80,4 +80,32 @@ class Wordcount {
             assertEquals("", stdErr.toString())
         }
     }
+
+    @Test
+    fun readChars() {
+        // Given
+        captureStreams { stdIn, stdOut, stdErr ->
+
+            // When
+            WordCount().main(listOf("-m", "test.txt"))
+
+            // Then
+            assertEquals("339292 test.txt\n", stdOut.toString())
+            assertEquals("", stdErr.toString())
+        }
+    }
+
+    @Test
+    fun readWithoutFlags() {
+        // Given
+        captureStreams { stdIn, stdOut, stdErr ->
+
+            // When
+            WordCount().main(listOf("test.txt"))
+
+            // Then
+            assertEquals("7145   58164  342190 test.txt\n", stdOut.toString())
+            assertEquals("", stdErr.toString())
+        }
+    }
 }
