@@ -7,6 +7,7 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import java.io.FileInputStream
+import java.nio.channels.Channels
 import java.nio.file.Path
 
 class WordCount : CliktCommand(help = "Word, line, and byte or character count.") {
@@ -36,7 +37,11 @@ class WordCount : CliktCommand(help = "Word, line, and byte or character count."
         )
 
         val inputStream = filePath?.let { FileInputStream(it.toFile()) } ?: System.`in`
-        inputStream.use { processor.process(it) }
+        inputStream.use { stream ->
+            Channels.newChannel(stream).use { channel ->
+                processor.process(channel)
+            }
+        }
     }
 
 }

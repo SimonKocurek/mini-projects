@@ -104,7 +104,7 @@ class Wordcount {
             WordCount().main(listOf("test.txt"))
 
             // Then
-            assertEquals("7145   58164  342190 test.txt\n", stdOut.toString())
+            assertEquals("7145 58164 342190 test.txt\n", stdOut.toString())
             assertEquals("", stdErr.toString())
         }
     }
