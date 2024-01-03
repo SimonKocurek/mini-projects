@@ -1,7 +1,7 @@
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import wordcount.WordCount
+import wordcount.WordCountCli
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -45,7 +45,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().main(listOf("-c", "test.txt"))
+            WordCountCli().main(listOf("-c", "test.txt"))
 
             // Then
             assertEquals("342190 test.txt\n", stdOut.toString())
@@ -59,7 +59,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().main(listOf("-l", "test.txt"))
+            WordCountCli().main(listOf("-l", "test.txt"))
 
             // Then
             assertEquals("7145 test.txt\n", stdOut.toString())
@@ -73,7 +73,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().main(listOf("-w", "test.txt"))
+            WordCountCli().main(listOf("-w", "test.txt"))
 
             // Then
             assertEquals("58164 test.txt\n", stdOut.toString())
@@ -87,7 +87,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().main(listOf("-m", "test.txt"))
+            WordCountCli().main(listOf("-m", "test.txt"))
 
             // Then
             assertEquals("339292 test.txt\n", stdOut.toString())
@@ -101,7 +101,7 @@ class Wordcount {
         captureStreams { stdIn, stdOut, stdErr ->
 
             // When
-            WordCount().main(listOf("test.txt"))
+            WordCountCli().main(listOf("test.txt"))
 
             // Then
             assertEquals("7145 58164 342190 test.txt\n", stdOut.toString())

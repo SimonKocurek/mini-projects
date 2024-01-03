@@ -1,47 +1,177 @@
 package wordcount
 
-import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.parameters.arguments.argument
-import com.github.ajalt.clikt.parameters.arguments.optional
-import com.github.ajalt.clikt.parameters.options.flag
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.types.path
-import java.io.FileInputStream
-import java.nio.channels.Channels
+import java.nio.ByteBuffer
+import java.nio.CharBuffer
+import java.nio.channels.ReadableByteChannel
+import java.nio.charset.Charset
+import java.nio.charset.CharsetDecoder
 import java.nio.file.Path
+import java.util.regex.Pattern
 
-class WordCount : CliktCommand(help = "Word, line, and byte or character count.") {
+class WordCount(
+    private val bytesFlag: Boolean,
+    private val wordsFlag: Boolean,
+    private val linesFlag: Boolean,
+    private val charsFlag: Boolean,
+    private val filePath: Path?,
+    private val bufferSize: Int = 1024 * 4
+) {
 
-    private val bytesFlag: Boolean by option("-c", "--bytes", help = "Print the byte counts.").flag()
-    private val wordsFlag: Boolean by option("-w", "--words", help = "Print the word counts.").flag()
-    private val linesFlag: Boolean by option("-l", "--lines", help = "Print the newline counts.").flag()
-    private val charsFlag: Boolean by option(
-        "-m",
-        "--chars",
-        help = "Print the character counts (assuming current locale)."
-    ).flag()
-    private val filePath: Path? by argument(
-        name = "file",
-        help = "A pathname of an input file. If no file operands are specified, the standard input shall be used."
-    ).path(mustExist = true, canBeDir = false, mustBeReadable = true).optional()
+    private data class Result(
+        var lines: Long = 0,
+        var words: Long = 0,
+        var chars: Long = 0,
+        var bytes: Long = 0,
+        var finishedWithWhitespace: Boolean = true,
+    )
 
-    private val isDefaultConfiguration by lazy { !bytesFlag && !wordsFlag && !linesFlag && !charsFlag }
+    private val wordSplitPattern = Pattern.compile("\\s+")
 
-    override fun run() {
-        val processor = WordCountProcessor(
-            bytesFlag = if (isDefaultConfiguration) true else bytesFlag,
-            wordsFlag = if (isDefaultConfiguration) true else wordsFlag,
-            linesFlag = if (isDefaultConfiguration) true else linesFlag,
-            charsFlag = charsFlag,
-            filePath = filePath,
-        )
+    fun process(channel: ReadableByteChannel) {
+        val readResult = readFromStream(channel)
+        printOutput(readResult)
+    }
 
-        val inputStream = filePath?.let { FileInputStream(it.toFile()) } ?: System.`in`
-        inputStream.use { stream ->
-            Channels.newChannel(stream).use { channel ->
-                processor.process(channel)
+    private fun readFromStream(channel: ReadableByteChannel): Result {
+        val result = Result()
+
+        val byteBuffer = ByteBuffer.allocate(bufferSize)
+
+        // Decoder is stateful and not thread safe, so we cannot reuse it between calls
+        val characterDecoder = Charset.defaultCharset().newDecoder()
+        // In case some encodings have more characters per 1 byte, we need bigger character
+        // buffer, to avoid overflows.
+        val characterBuffer = CharBuffer.allocate(bufferSize * 2)
+
+        while (true) {
+            val readBytes = channel.read(byteBuffer)
+            if (readBytes == -1) {
+                byteBuffer.flip()
+
+                // As per documentation, we need to call decode with `endOfInput = true`
+                // and flush at the end of reading.
+                characterDecoder.decode(byteBuffer, characterBuffer, true)
+                characterDecoder.flush(characterBuffer)
+
+                // There might have been some bytes unconverted to characters before flushing.
+                result.bytes += byteBuffer.limit().toLong()
+
+                updateCharacterMetrics(result, characterBuffer)
+                break
             }
+
+            // When decoding, we sometimes save some bytes for the next iteration, if some multibyte
+            // character was missing final bytes.
+            result.bytes += decodeBytesToCharacters(byteBuffer, characterDecoder, characterBuffer)
+
+            updateCharacterMetrics(result, characterBuffer)
+            characterBuffer.clear()
+        }
+
+        return result
+    }
+
+    private fun updateCharacterMetrics(result: Result, characterBuffer: CharBuffer) {
+        characterBuffer.flip() // Change to read mode
+        result.chars += characterBuffer.limit()
+
+        if (linesFlag) {
+            // Even though Windows uses different System.lineSeparator(),
+            // the original `wc` utility is made for UNIX systems and as
+            // such it only considers '\n' as a newline.
+            result.lines += characterBuffer.count { it == '\n' }
+        }
+
+        if (wordsFlag) {
+            updateWordCount(result, characterBuffer)
         }
     }
 
+    private fun updateWordCount(result: Result, characterBuffer: CharBuffer) {
+        if (characterBuffer.isEmpty()) {
+            return
+        }
+
+        // It is possible that all we got is whitespace so there are no words
+        if (characterBuffer.isNotBlank()) {
+            result.words += characterBuffer.toString().split(wordSplitPattern).size
+
+            // If word was split during batches so that one batch ended with first half of the word
+            // and second batch started with second half of the word, we don't want to
+            // count that word twice.
+            if (!result.finishedWithWhitespace) {
+                result.words--
+            }
+        }
+
+        result.finishedWithWhitespace = characterBuffer.last().isWhitespace()
+    }
+
+    /**
+     * @return Number of consumed bytes. (Might be lower than the byteBuffer limit, as some bytes at the end can carry over to the next iteration.)
+     */
+    private fun decodeBytesToCharacters(byteBuffer: ByteBuffer, characterDecoder: CharsetDecoder, characterBuffer: CharBuffer): Long {
+        // Flip from writing mode (cursor at the end) to reading mode (cursor at the start)
+        byteBuffer.flip()
+
+        var byteBufferWriteMode = false // Assume we start in read mode
+        var consumedBytes = byteBuffer.limit().toLong()
+
+        val decodeResult = characterDecoder.decode(byteBuffer, characterBuffer, false)
+
+        if (decodeResult.isOverflow) {
+            // It should never happen, that we get more characters than can fit in the buffer,
+            // as we read them in each iteration.
+            decodeResult.throwException()
+        }
+
+        if (decodeResult.isError) {
+            decodeResult.throwException()
+        }
+
+        if (decodeResult.isUnderflow) {
+            // If some character consists of multiple bytes and part of it was cut off at the
+            // end of the read buffer, we can copy the first bytes to the start of the buffer
+            // and read the rest of the character bytes in the following iteration.
+            byteBuffer.compact()
+            // Compacting implicitly flips mode from reading to writing.
+            byteBufferWriteMode = true
+            // These bytes will be read in the next batch, so we don't want to count them twice.
+            consumedBytes -= byteBuffer.position()
+        }
+
+        if (!byteBufferWriteMode) {
+            // Once we finish reading, we want to reset back to writing mode, so that we can read
+            // the next batch of bytes.
+            byteBuffer.clear()
+        }
+
+        return consumedBytes
+    }
+
+    private fun printOutput(result: Result) {
+        val output = StringBuilder()
+
+        if (linesFlag) {
+            output.append("${result.lines} ")
+        }
+
+        if (wordsFlag) {
+            output.append("${result.words} ")
+        }
+
+        if (bytesFlag || charsFlag) {
+            if (charsFlag) {
+                output.append("${result.chars} ")
+            } else {
+                output.append("${result.bytes} ")
+            }
+        }
+
+        if (filePath != null) {
+            output.append(filePath)
+        }
+
+        println(output.toString().trimEnd())
+    }
 }
