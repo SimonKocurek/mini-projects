@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import java.io.FileInputStream
 import java.nio.channels.Channels
+import java.nio.charset.Charset
 import java.nio.file.Path
 
 fun main(args: Array<String>) {
@@ -42,22 +43,28 @@ $ cat test.txt | wordcount
         name = "file",
         help = "A pathname of an input file. If no file operands are specified, the standard input shall be used."
     ).path(mustExist = true, canBeDir = false, mustBeReadable = true).optional()
+    private val charset: String? by option(
+        "--charset",
+        help = "Use specific charset to count characters and words. System default is used when not specified. Examples: US-ASCII, UTF-8, UTF-16.",
+    )
+
 
     private val isDefaultConfiguration by lazy { !bytesFlag && !wordsFlag && !linesFlag && !charsFlag }
 
     override fun run() {
-        val processor = WordCount(
+        val wordcount = WordCount(
             bytesFlag = if (isDefaultConfiguration) true else bytesFlag,
             wordsFlag = if (isDefaultConfiguration) true else wordsFlag,
             linesFlag = if (isDefaultConfiguration) true else linesFlag,
             charsFlag = charsFlag,
             filePath = filePath,
+            charset = charset?.let { Charset.forName(it) } ?: Charset.defaultCharset()
         )
 
         val inputStream = filePath?.let { FileInputStream(it.toFile()) } ?: System.`in`
         inputStream.use { stream ->
             Channels.newChannel(stream).use { channel ->
-                processor.process(channel)
+                wordcount.process(channel)
             }
         }
     }

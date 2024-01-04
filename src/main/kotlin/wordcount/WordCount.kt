@@ -6,7 +6,6 @@ import java.nio.channels.ReadableByteChannel
 import java.nio.charset.Charset
 import java.nio.charset.CharsetDecoder
 import java.nio.file.Path
-import java.util.regex.Pattern
 
 class WordCount(
     private val bytesFlag: Boolean,
@@ -14,7 +13,8 @@ class WordCount(
     private val linesFlag: Boolean,
     private val charsFlag: Boolean,
     private val filePath: Path?,
-    private val bufferSize: Int = 1024 * 4
+    private val charset: Charset,
+    private val bufferSize: Int = 1024 * 4,
 ) {
 
     private data class Result(
@@ -24,8 +24,6 @@ class WordCount(
         var bytes: Long = 0,
         var finishedWithWhitespace: Boolean = true,
     )
-
-    private val wordSplitPattern = Pattern.compile("\\s+")
 
     fun process(channel: ReadableByteChannel) {
         val readResult = readFromStream(channel)
@@ -38,7 +36,7 @@ class WordCount(
         val byteBuffer = ByteBuffer.allocate(bufferSize)
 
         // Decoder is stateful and not thread safe, so we cannot reuse it between calls
-        val characterDecoder = Charset.defaultCharset().newDecoder()
+        val characterDecoder = charset.newDecoder()
         // In case some encodings have more characters per 1 byte, we need bigger character
         // buffer, to avoid overflows.
         val characterBuffer = CharBuffer.allocate(bufferSize * 2)
@@ -55,7 +53,6 @@ class WordCount(
 
                 // There might have been some bytes unconverted to characters before flushing.
                 result.bytes += byteBuffer.limit().toLong()
-
                 updateCharacterMetrics(result, characterBuffer)
                 break
             }
@@ -63,7 +60,6 @@ class WordCount(
             // When decoding, we sometimes save some bytes for the next iteration, if some multibyte
             // character was missing final bytes.
             result.bytes += decodeBytesToCharacters(byteBuffer, characterDecoder, characterBuffer)
-
             updateCharacterMetrics(result, characterBuffer)
             characterBuffer.clear()
         }
@@ -88,23 +84,13 @@ class WordCount(
     }
 
     private fun updateWordCount(result: Result, characterBuffer: CharBuffer) {
-        if (characterBuffer.isEmpty()) {
-            return
-        }
-
-        // It is possible that all we got is whitespace so there are no words
-        if (characterBuffer.isNotBlank()) {
-            result.words += characterBuffer.toString().split(wordSplitPattern).size
-
-            // If word was split during batches so that one batch ended with first half of the word
-            // and second batch started with second half of the word, we don't want to
-            // count that word twice.
-            if (!result.finishedWithWhitespace) {
-                result.words--
+        for (c in characterBuffer) {
+            if (!c.isWhitespace() && result.finishedWithWhitespace) {
+                result.words += 1
             }
-        }
 
-        result.finishedWithWhitespace = characterBuffer.last().isWhitespace()
+            result.finishedWithWhitespace = c.isWhitespace()
+        }
     }
 
     /**

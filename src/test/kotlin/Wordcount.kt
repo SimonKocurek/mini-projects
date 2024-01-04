@@ -2,47 +2,31 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import wordcount.WordCountCli
-import java.io.FileOutputStream
+import java.io.BufferedInputStream
 import java.nio.file.Files
-import java.nio.file.Paths
-import java.util.zip.ZipInputStream
-import kotlin.io.path.createFile
+import kotlin.io.path.Path
 import kotlin.test.assertEquals
 
 
 class Wordcount {
 
-    private val testFilePath = Paths.get("test.txt")
-
     @BeforeEach
     fun prepare() {
-        extractTestFile()
-    }
-
-    private fun extractTestFile() {
         cleanup()
-
-        javaClass.getResourceAsStream("wordcount/test.txt.zip")?.use { zipStream ->
-            ZipInputStream(zipStream).use { zippedArchive ->
-                zippedArchive.nextEntry?.let { zippedFile ->
-                    val outputFilePath = testFilePath.createFile()
-                    FileOutputStream(outputFilePath.toFile()).use { outputStream ->
-                        zippedArchive.copyTo(outputStream)
-                    }
-                }
-            }
-        }
+        getZipFileStream().use { unzip(it) }
     }
 
     @AfterEach
     fun cleanup() {
-        Files.deleteIfExists(testFilePath)
+        getZipFileStream().use { cleanupUnzipped(it) }
     }
+
+    private fun getZipFileStream() = javaClass.getResourceAsStream("wordcount/test.txt.zip")!!
 
     @Test
     fun readBytes() {
         // Given
-        captureStreams { stdIn, stdOut, stdErr ->
+        captureStreams { stdOut, stdErr ->
 
             // When
             WordCountCli().main(listOf("-c", "test.txt"))
@@ -56,7 +40,7 @@ class Wordcount {
     @Test
     fun readLines() {
         // Given
-        captureStreams { stdIn, stdOut, stdErr ->
+        captureStreams { stdOut, stdErr ->
 
             // When
             WordCountCli().main(listOf("-l", "test.txt"))
@@ -70,7 +54,7 @@ class Wordcount {
     @Test
     fun readWords() {
         // Given
-        captureStreams { stdIn, stdOut, stdErr ->
+        captureStreams { stdOut, stdErr ->
 
             // When
             WordCountCli().main(listOf("-w", "test.txt"))
@@ -82,12 +66,12 @@ class Wordcount {
     }
 
     @Test
-    fun readChars() {
+    fun readCharsUtf() {
         // Given
-        captureStreams { stdIn, stdOut, stdErr ->
+        captureStreams { stdOut, stdErr ->
 
             // When
-            WordCountCli().main(listOf("-m", "test.txt"))
+            WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-8"))
 
             // Then
             assertEquals("339292 test.txt\n", stdOut.toString())
@@ -96,16 +80,48 @@ class Wordcount {
     }
 
     @Test
-    fun readWithoutFlags() {
+    fun readCharsUtf16() {
         // Given
-        captureStreams { stdIn, stdOut, stdErr ->
+        captureStreams { stdOut, stdErr ->
 
             // When
-            WordCountCli().main(listOf("test.txt"))
+            WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-16"))
+
+            // Then
+            assertEquals("171095 test.txt\n", stdOut.toString())
+            assertEquals("", stdErr.toString())
+        }
+    }
+
+    @Test
+    fun readWithoutFlags() {
+        // Given
+        captureStreams { stdOut, stdErr ->
+
+            // When
+            WordCountCli().main(listOf("test.txt", "--charset", "UTF-8"))
 
             // Then
             assertEquals("7145 58164 342190 test.txt\n", stdOut.toString())
             assertEquals("", stdErr.toString())
+        }
+    }
+
+    @Test
+    fun readStreamWithoutFlags() {
+        // Given
+        Files.newInputStream(Path("test.txt")).use { fileStream ->
+            BufferedInputStream(fileStream).use { bufferedStream ->
+                captureStreams(bufferedStream) { stdOut, stdErr ->
+
+                    // When
+                    WordCountCli().main(listOf("--charset", "UTF-8"))
+
+                    // Then
+                    assertEquals("7145 58164 342190\n", stdOut.toString())
+                    assertEquals("", stdErr.toString())
+                }
+            }
         }
     }
 }
