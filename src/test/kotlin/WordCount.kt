@@ -1,5 +1,5 @@
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import wordcount.WordCountCli
 import java.io.BufferedInputStream
@@ -8,20 +8,24 @@ import kotlin.io.path.Path
 import kotlin.test.assertEquals
 
 
-class Wordcount {
+class WordCount {
 
-    @BeforeEach
-    fun prepare() {
-        cleanup()
-        getZipFileStream().use { unzip(it) }
+    companion object {
+        private fun getZipFileStream() = Companion::class.java.getResourceAsStream("wordcount/test.txt.zip")!!
+
+        @JvmStatic
+        @BeforeAll
+        fun prepare() {
+            cleanup()
+            getZipFileStream().use { unzip(it) }
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun cleanup() {
+            getZipFileStream().use { cleanupUnzipped(it) }
+        }
     }
-
-    @AfterEach
-    fun cleanup() {
-        getZipFileStream().use { cleanupUnzipped(it) }
-    }
-
-    private fun getZipFileStream() = javaClass.getResourceAsStream("wordcount/test.txt.zip")!!
 
     @Test
     fun readBytes() {

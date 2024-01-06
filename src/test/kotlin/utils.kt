@@ -1,8 +1,7 @@
 import java.io.*
-import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.zip.ZipInputStream
-import kotlin.io.path.createFile
+import kotlin.io.path.*
 
 
 fun captureStreams(
@@ -40,8 +39,12 @@ fun unzip(zipStream: InputStream) {
             val zippedFile = zippedArchive.nextEntry ?: return
             val outputFilePath = Paths.get(zippedFile.name)
 
-            if (outputFilePath.parent != null) {
-                println("!Warning: Not unzipping nested file with path $outputFilePath")
+            if (outputFilePath.parent?.exists() == false) {
+                outputFilePath.createParentDirectories()
+            }
+
+            if (zippedFile.isDirectory) {
+                outputFilePath.createDirectory()
                 continue
             }
 
@@ -53,12 +56,13 @@ fun unzip(zipStream: InputStream) {
     }
 }
 
+@OptIn(ExperimentalPathApi::class)
 fun cleanupUnzipped(zipStream: InputStream) {
     ZipInputStream(zipStream).use { zippedArchive ->
         while (true) {
             val zippedFile = zippedArchive.nextEntry ?: return
             val unzippedFile = Paths.get(zippedFile.name)
-            Files.deleteIfExists(unzippedFile)
+            unzippedFile.deleteRecursively()
         }
     }
 }
