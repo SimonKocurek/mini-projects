@@ -10,6 +10,8 @@ class JsonParsingException(message: String) : RuntimeException(message)
  * Parser compatible with RFC-8259 JSON standard.
  *
  * @throws JsonParsingException if invalid JSON is provided.
+ * @throws StackOverflowError if JSON nesting is too deep
+ *  (max depth depends on call-stack size. Should not happen unless JSON has thousands layers of nesting).
  *
  * @return Object of one of the types:
  *  - Map<String, Any?> (object)
@@ -36,12 +38,11 @@ fun parseJson(value: String): Any? {
 
 private class ParsingInstance(private val buffer: CharBuffer) {
 
-//    TODO use explicit stack instead of call stack to prevent overflow in case of deeply nested JSON
     /**
-     * Keystack is useful for debugging and is part of the error message. It shows nesting inside objects and arrays.
+     * Keystack is useful for debugging and is part of the error message.
+     * It shows nesting inside objects and arrays.
      */
     private val keyStack = Stack<String>()
-    private val objectStack = Stack<Any?>()
 
     /**
      * Moves buffer forward while parsing any valid JSON value.
@@ -55,9 +56,9 @@ private class ParsingInstance(private val buffer: CharBuffer) {
             starter == '[' -> parseArray()
             starter == '"' -> parseString()
             starter == 't' -> parseTrue()
-            starter =='f' -> parseFalse()
+            starter == 'f' -> parseFalse()
             starter == 'n' -> parseNull()
-            starter.isDigit() || starter == '-' ->parseNumber()
+            starter.isDigit() || starter == '-' -> parseNumber()
             else -> throw error("Expected start of a JSON value, but got '${buffer.peek()}'")
         }
 
@@ -169,6 +170,7 @@ private class ParsingInstance(private val buffer: CharBuffer) {
                     result.append(buffer.get())
                 }
             }
+
             else -> throw error("Expected digit, but got '${buffer.peek()}'")
         }
     }
