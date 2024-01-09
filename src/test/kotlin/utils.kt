@@ -1,8 +1,11 @@
 import java.io.*
+import java.nio.file.Path
 import java.nio.file.Paths
+import java.time.Instant
 import java.util.zip.ZipInputStream
 import kotlin.io.path.*
 
+private object Dummy
 
 fun captureStreams(
     newStdIn: InputStream = ByteArrayInputStream(ByteArray(1000)),
@@ -30,6 +33,37 @@ fun captureStreams(
         System.setErr(stdErr)
         System.setOut(stdOut)
         System.setIn(stdIn)
+    }
+}
+
+@OptIn(ExperimentalPathApi::class)
+fun usingResourceFile(savedAs: String, resourcePath: String, callable: () -> Unit) {
+    try {
+        Path(savedAs).deleteRecursively()
+
+        Dummy::class.java.getResourceAsStream(resourcePath)!!.use { inputStream ->
+            FileOutputStream(savedAs).use {  outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+        }
+
+        callable()
+    } finally {
+        Path(savedAs).deleteRecursively()
+    }
+}
+
+fun usingTempFile(content: String, callable: (filePath: Path) -> Unit) {
+    val filePath = Path("${Instant.now().epochSecond}-test.temp.txt")
+
+    try {
+        filePath.outputStream().buffered().use { outputStream ->
+            outputStream.write(content.toByteArray())
+        }
+
+        callable(filePath)
+    } finally {
+        filePath.deleteIfExists()
     }
 }
 
