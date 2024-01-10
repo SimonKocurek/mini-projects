@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.file
+import java.io.File
 import kotlin.math.roundToInt
 
 
@@ -15,16 +16,14 @@ fun main(args: Array<String>) {
 class CompressCli : CliktCommand(
     name = "compress",
     help = """
-        Pack files to decrease their size.
+        Compress files to decrease their size.
         Unpack files to retrieve the original.
-        Packing file creates a packed file with same filename and `.minzip` extension.
 
         Files are compressed using Huffman encoding.
         
-        > On an empty file prints stderr error instead of compressing. 
+        > On an empty file prints stderr error instead of processing. 
         
-        > If a file with .minzip suffix already exists during compression, prints error.
-        > Similarly, during decompression if a file without .minzip suffix already exists, prints error.
+        > If a file with name specified in --output argument already exists, prints error and stops.
         
         Examples:
         ```bash
@@ -32,14 +31,24 @@ class CompressCli : CliktCommand(
         test.txt.minzip (deflated to 10%)
         ```
         ```bash
-        ${'$'} compress -d test.txt.minzip
-        test.txt (inflated to 1000%)
+        ${'$'} compress --output test.json --unpack test.txt.minzip
+        test.json (inflated to 1000%)
         ```
     """.trimIndent(),
     printHelpOnEmptyArgs = true
 ) {
 
-    private val decompress by option("-d", "--decompress", help = "If specified, file will be unpacked.").flag()
+    private val unpack by option(
+        "-u",
+        "--unpack",
+        help = "If specified, file will be unpacked as opposed to compressed."
+    ).flag()
+
+    private val outputName by option(
+        "-o",
+        "--output",
+        help = "Name of the generated file. If no name is provided, '.minzip' will be added/removed from the input file."
+    )
 
     private val file by argument(help = "File to compress/unpack.").file(
         mustExist = true,
@@ -49,14 +58,47 @@ class CompressCli : CliktCommand(
 
     override fun run() {
         if (file.length() == 0L) {
-            System.err.println("Received empty file. Nothing to compress.")
+            System.err.println("Received empty file. Nothing to do.")
             return
         }
 
-        val compressed = Compressor().compress(file)
+        if (unpack) {
+            unpackFile()
+        } else {
+            compressFile()
+        }
+    }
 
-        val deflatedPercent = compressed.length() / file.length().toDouble() * 100
-        println("${compressed.name} (deflated to ${deflatedPercent.roundToInt()}%)")
+    private fun unpackFile() {
+        val outputFile = outputName?.let { File(it) } ?: if (file.extension == "minzip") {
+            File(file.nameWithoutExtension)
+        } else {
+            System.err.println("Unknown output file name. Please provide '--output' parameter or specify an input file with '.minzip' extension.")
+            return
+        }
+
+        if (outputFile.exists()) {
+            System.err.println("File ${outputFile.name} already exists. Not compressing.")
+            return
+        }
+
+        Unpacker().unpack(file, outputFile)
+
+        val inflatedPercent = outputFile.length() / file.length().toDouble() * 100
+        println("${outputFile.name} (inflated to ${inflatedPercent.roundToInt()}%)")
+    }
+
+    private fun compressFile() {
+        val outputFile = File(outputName ?: "${file.absolutePath}.minzip")
+        if (outputFile.exists()) {
+            System.err.println("File ${outputFile.name} already exists. Not compressing.")
+            return
+        }
+
+        Compressor().compress(file, outputFile)
+
+        val deflatedPercent = outputFile.length() / file.length().toDouble() * 100
+        println("${outputFile.name} (deflated to ${deflatedPercent.roundToInt()}%)")
     }
 
 }

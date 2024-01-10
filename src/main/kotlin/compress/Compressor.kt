@@ -1,8 +1,8 @@
 package compress
 
 import java.io.File
-import java.io.FileOutputStream
 import java.io.ObjectOutputStream
+import java.util.BitSet
 import java.util.Comparator
 import java.util.PriorityQueue
 
@@ -13,19 +13,16 @@ internal class Compressor {
      * Packed file has a header with format where each field is 1 byte:
      * [header length, *[original byte, compressed byte, encoding bits], body expected bytes]
      */
-    fun compress(inputFile: File): File {
+    fun compress(inputFile: File, outputFile: File) {
         val frequencies = getByteFrequencies(inputFile)
         val tree = buildHuffmanTree(frequencies)
-        val conversions = mapToConversions(tree)
+        val conversions = toConversions(tree)
 
-        val outputFile = "${inputFile.absolutePath}.minzip"
         // Buffering needed, as we output data byte by byte
-        ObjectOutputStream(FileOutputStream(outputFile).buffered()).use { fileOutput ->
-            CompressionHeader(conversions, tree.frequency).write(fileOutput)
-            compressBodyToStream(conversions, inputFile, fileOutput)
+        ObjectOutputStream(outputFile.outputStream().buffered()).use { outputStream ->
+            CompressionHeader(conversions, tree.frequency).write(outputStream)
+            compressBodyToStream(conversions, inputFile, outputStream)
         }
-
-        return File(outputFile)
     }
 
     /**
@@ -62,7 +59,14 @@ internal class Compressor {
             nodeOrder.add(parentNode)
         }
 
-        return nodeOrder.poll()
+        val root = nodeOrder.poll()
+        if (root.value != null) {
+            // If we have only 1 character in the whole file, it can happen that the root of the tree
+            // will be a leaf as well. In such case we would be trying to encode that character using 0
+            // bits. To prevent that, we artificially assign it bit '0'.
+            return TreeNode(left = root, frequency = root.frequency)
+        }
+        return root
     }
 
     /**
@@ -95,8 +99,8 @@ internal class Compressor {
     /**
      * @return conversion rules used for mapping each byte to possibly fewer bits.
      */
-    private fun mapToConversions(tree: TreeNode): List<CompressionConversion> = buildList {
-        // We can use recursion as the tree won't ever be deeper than 8 levels,
+    private fun toConversions(tree: TreeNode): List<CompressionConversion> = buildList {
+        // We can use recursion as the tree won't ever be deeper than 64 levels (Int size),
         // so we don't risk hitting StackOverflowError.
         addSubtreeConversions(
             node = tree,
@@ -141,7 +145,7 @@ internal class Compressor {
         }
     }
 
-    private fun compressBodyToStream(conversions: List<CompressionConversion>, file: File, fileOutput: ObjectOutputStream) {
+    private fun compressBodyToStream(conversions: List<CompressionConversion>, file: File, outputStream: ObjectOutputStream) {
         val byteConversion = conversions.associateBy { it.originalByte }
 
         var writtenBits = 0
@@ -162,13 +166,13 @@ internal class Compressor {
 
                 if (writtenBits >= 8) {
                     writtenBits -= 8
-                    fileOutput.writeByte(writtenValue shr writtenBits)
+                    outputStream.writeByte(writtenValue ushr writtenBits)
                 }
             }
         }
 
         if (writtenBits > 0) {
-            fileOutput.writeByte(writtenValue)
+            outputStream.writeByte(writtenValue)
         }
     }
 }

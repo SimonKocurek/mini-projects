@@ -24,9 +24,9 @@ data class CompressionConversion(
          * @throws EOFException If end of stream was reached while trying to read the object.
          */
         fun read(objectStream: ObjectInputStream) = CompressionConversion(
-            originalByte = objectStream.readByte().toInt(),
-            compressedByte = objectStream.readByte().toInt(),
-            compressedBits = objectStream.readByte().toInt(),
+            originalByte = objectStream.readUnsignedByte(),
+            bits = objectStream.readInt(),
+            bitCount = objectStream.readUnsignedByte(),
         )
     }
 }
