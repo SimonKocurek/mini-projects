@@ -4,10 +4,9 @@ import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.channels.ReadableByteChannel
 import java.nio.charset.Charset
-import java.nio.charset.CharsetDecoder
 import java.nio.file.Path
 
-class WordCount(
+internal class WordCount(
     private val bytesFlag: Boolean,
     private val wordsFlag: Boolean,
     private val linesFlag: Boolean,
@@ -17,30 +16,72 @@ class WordCount(
     private val bufferSize: Int = 1024 * 4,
 ) {
 
-    private data class Result(
-        var lines: Long = 0,
-        var words: Long = 0,
-        var chars: Long = 0,
-        var bytes: Long = 0,
-        var finishedWithWhitespace: Boolean = true,
-    )
-
     fun process(channel: ReadableByteChannel) {
-        val readResult = readFromStream(channel)
-        printOutput(readResult)
+        val instance = WordCountInstance(
+            wordsFlag = wordsFlag,
+            linesFlag = linesFlag,
+            bufferSize = bufferSize,
+            charset = charset
+        )
+        instance.readFromStream(channel)
+        printOutput(instance)
     }
 
-    private fun readFromStream(channel: ReadableByteChannel): Result {
-        val result = Result()
+    private fun printOutput(instance: WordCountInstance) {
+        val output = buildString {
+            if (linesFlag) {
+                append("${instance.lines} ")
+            }
 
-        val byteBuffer = ByteBuffer.allocate(bufferSize)
+            if (wordsFlag) {
+                append("${instance.words} ")
+            }
 
-        // Decoder is stateful and not thread safe, so we cannot reuse it between calls
-        val characterDecoder = charset.newDecoder()
-        // In case some encodings have more characters per 1 byte, we need bigger character
-        // buffer, to avoid overflows.
-        val characterBuffer = CharBuffer.allocate(bufferSize * 2)
+            if (bytesFlag || charsFlag) {
+                if (charsFlag) {
+                    append("${instance.chars} ")
+                } else {
+                    append("${instance.bytes} ")
+                }
+            }
 
+            if (filePath != null) {
+                append(filePath)
+            }
+        }
+
+        println(output.trimEnd())
+    }
+}
+
+/**
+ * Instances are stateful and non-thread-safe.
+ */
+private class WordCountInstance(
+    private val wordsFlag: Boolean,
+    private val linesFlag: Boolean,
+    bufferSize: Int,
+    charset: Charset,
+) {
+
+    var lines: Long = 0
+        private set
+    var words: Long = 0
+        private set
+    var chars: Long = 0
+        private set
+    var bytes: Long = 0
+        private set
+
+    private var finishedWithWhitespace: Boolean = true
+    private val byteBuffer = ByteBuffer.allocate(bufferSize)
+    // Decoder is stateful and not thread safe, so we cannot reuse it between instances
+    private val characterDecoder = charset.newDecoder()
+    // In case some encodings have more characters per 1 byte, we need bigger character
+    // buffer, to avoid overflows.
+    private val characterBuffer = CharBuffer.allocate(bufferSize * 2)
+
+    fun readFromStream(channel: ReadableByteChannel) {
         while (true) {
             val readBytes = channel.read(byteBuffer)
             if (readBytes == -1) {
@@ -52,51 +93,49 @@ class WordCount(
                 characterDecoder.flush(characterBuffer)
 
                 // There might have been some bytes unconverted to characters before flushing.
-                result.bytes += byteBuffer.limit().toLong()
-                updateCharacterMetrics(result, characterBuffer)
+                bytes += byteBuffer.limit().toLong()
+                updateCharacterMetrics()
                 break
             }
 
             // When decoding, we sometimes save some bytes for the next iteration, if some multibyte
             // character was missing final bytes.
-            result.bytes += decodeBytesToCharacters(byteBuffer, characterDecoder, characterBuffer)
-            updateCharacterMetrics(result, characterBuffer)
+            bytes += decodeBytesToCharacters()
+            updateCharacterMetrics()
             characterBuffer.clear()
         }
-
-        return result
     }
 
-    private fun updateCharacterMetrics(result: Result, characterBuffer: CharBuffer) {
+    private fun updateCharacterMetrics() {
         characterBuffer.flip() // Change to read mode
-        result.chars += characterBuffer.limit()
+        chars += characterBuffer.limit()
 
         if (linesFlag) {
             // Even though Windows uses different System.lineSeparator(),
             // the original `wc` utility is made for UNIX systems and as
             // such it only considers '\n' as a newline.
-            result.lines += characterBuffer.count { it == '\n' }
+            lines += characterBuffer.count { it == '\n' }
         }
 
         if (wordsFlag) {
-            updateWordCount(result, characterBuffer)
+            updateWordCount()
         }
     }
 
-    private fun updateWordCount(result: Result, characterBuffer: CharBuffer) {
+    private fun updateWordCount() {
         for (c in characterBuffer) {
-            if (!c.isWhitespace() && result.finishedWithWhitespace) {
-                result.words += 1
+            if (!c.isWhitespace() && finishedWithWhitespace) {
+                words += 1
             }
 
-            result.finishedWithWhitespace = c.isWhitespace()
+            finishedWithWhitespace = c.isWhitespace()
         }
     }
 
     /**
      * @return Number of consumed bytes. (Might be lower than the byteBuffer limit, as some bytes at the end can carry over to the next iteration.)
      */
-    private fun decodeBytesToCharacters(byteBuffer: ByteBuffer, characterDecoder: CharsetDecoder, characterBuffer: CharBuffer): Long {
+    private fun decodeBytesToCharacters(): Long {
         // Flip from writing mode (cursor at the end) to reading mode (cursor at the start)
         byteBuffer.flip()
 
@@ -135,29 +174,4 @@ class WordCount(
         return consumedBytes
     }
 
-    private fun printOutput(result: Result) {
-        val output = StringBuilder()
-
-        if (linesFlag) {
-            output.append("${result.lines} ")
-        }
-
-        if (wordsFlag) {
-            output.append("${result.words} ")
-        }
-
-        if (bytesFlag || charsFlag) {
-            if (charsFlag) {
-                output.append("${result.chars} ")
-            } else {
-                output.append("${result.bytes} ")
-            }
-        }
-
-        if (filePath != null) {
-            output.append(filePath)
-        }
-
-        println(output.toString().trimEnd())
-    }
 }

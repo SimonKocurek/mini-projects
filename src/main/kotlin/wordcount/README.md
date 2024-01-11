@@ -1,6 +1,6 @@
 # Wordcount
 
-```bash
+```
 Usage: wordcount [<options>] [<file>]
 
   Word, line, and byte or character count. Outputs result in format "<lines>

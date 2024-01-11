@@ -97,16 +97,16 @@ private class ParsingInstance(private val buffer: CharBuffer) {
         expectCharacter('[')
         parseWhitespace()
 
-        val result = mutableListOf<Any?>()
+        val result = buildList {
+            while (buffer.peek(onEndOfInput = "Expected end of array ']'") != ']') {
+                if (size > 0) {
+                    expectCharacter(',')
+                }
 
-        while (buffer.peek(onEndOfInput = "Expected end of array ']'") != ']') {
-            if (result.size > 0) {
-                expectCharacter(',')
+                keyStack.push(size.toString())
+                add(parseValue())
+                keyStack.pop()
             }
-
-            keyStack.push(result.size.toString())
-            result.add(parseValue())
-            keyStack.pop()
         }
 
         expectCharacter(']')
@@ -121,20 +121,21 @@ private class ParsingInstance(private val buffer: CharBuffer) {
         expectCharacter('{')
         parseWhitespace()
 
-        val result = mutableMapOf<String, Any?>()
-        while (buffer.peek(onEndOfInput = "Expected end of object '}'") != '}') {
-            if (result.isNotEmpty()) {
-                expectCharacter(',')
+        val result = buildMap {
+            while (buffer.peek(onEndOfInput = "Expected end of object '}'") != '}') {
+                if (isNotEmpty()) {
+                    expectCharacter(',')
+                    parseWhitespace()
+                }
+
+                val key = parseString()
                 parseWhitespace()
+                expectCharacter(':')
+
+                keyStack.push(key)
+                put(key, parseValue())
+                keyStack.pop()
             }
-
-            val key = parseString()
-            parseWhitespace()
-            expectCharacter(':')
-
-            keyStack.push(key)
-            result[key] = parseValue()
-            keyStack.pop()
         }
 
         expectCharacter('}')
@@ -146,14 +147,14 @@ private class ParsingInstance(private val buffer: CharBuffer) {
      * Moves buffer forward while parsing number.
      */
     private fun parseNumber(): BigDecimal {
-        val result = StringBuilder()
+        val result = buildString {
+            parseNumberSign(this)
+            parseNumberBase(this)
+            parseNumberFraction(this)
+            parseNumberExponent(this)
+        }
 
-        parseNumberSign(result)
-        parseNumberBase(result)
-        parseNumberFraction(result)
-        parseNumberExponent(result)
-
-        return BigDecimal(result.toString())
+        return BigDecimal(result)
     }
 
     private fun parseNumberSign(result: StringBuilder) {

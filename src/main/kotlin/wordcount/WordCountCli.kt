@@ -6,10 +6,8 @@ import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
-import java.io.FileInputStream
 import java.nio.channels.Channels
 import java.nio.charset.Charset
-import java.nio.file.Path
 
 fun main(args: Array<String>) {
     WordCountCli().main(args)
@@ -17,37 +15,38 @@ fun main(args: Array<String>) {
 
 class WordCountCli : CliktCommand(
     name = "wordcount",
-    help = """Word, line, and byte or character count.
-Outputs result in format "<lines> <words> <chars or bytes> <file path>\n"
+    help = """
+        Word, line, and byte or character count.
+        Outputs result in format "<lines> <words> <chars or bytes> <file path>\n"
 
-Examples:
-```bash
-$ wordcount -l test.txt
-1234 test.txt
-```
-```bash
-$ cat test.txt | wordcount
-1234 5678 9123
-```"""
+        Examples:
+        ```bash
+        ${'$'} wordcount -l test.txt
+        1234 test.txt
+        ```
+        ```bash
+        ${'$'} cat test.txt | wordcount
+        1234 5678 9123
+        ```
+    """.trimIndent()
 ) {
 
-    private val bytesFlag: Boolean by option("-c", "--bytes", help = "Print the byte counts.").flag()
-    private val wordsFlag: Boolean by option("-w", "--words", help = "Print the word counts.").flag()
-    private val linesFlag: Boolean by option("-l", "--lines", help = "Print the newline counts.").flag()
-    private val charsFlag: Boolean by option(
+    private val bytesFlag by option("-c", "--bytes", help = "Print the byte counts.").flag()
+    private val wordsFlag by option("-w", "--words", help = "Print the word counts.").flag()
+    private val linesFlag by option("-l", "--lines", help = "Print the newline counts.").flag()
+    private val charsFlag by option(
         "-m",
         "--chars",
         help = "Print the character counts (assuming current locale)."
     ).flag()
-    private val filePath: Path? by argument(
+    private val filePath by argument(
         name = "file",
         help = "A pathname of an input file. If no file operands are specified, the standard input shall be used."
     ).path(mustExist = true, canBeDir = false, mustBeReadable = true).optional()
-    private val charset: String? by option(
+    private val charset by option(
         "--charset",
         help = "Use specific charset to count characters and words. System default is used when not specified. Examples: US-ASCII, UTF-8, UTF-16.",
     )
-
 
     private val isDefaultConfiguration by lazy { !bytesFlag && !wordsFlag && !linesFlag && !charsFlag }
 
@@ -61,7 +60,8 @@ $ cat test.txt | wordcount
             charset = charset?.let { Charset.forName(it) } ?: Charset.defaultCharset()
         )
 
-        val inputStream = filePath?.let { FileInputStream(it.toFile()) } ?: System.`in`
+        // Using `.buffered()` not needed, as we read in a buffered manner.
+        val inputStream = filePath?.toFile()?.inputStream() ?: System.`in`
         inputStream.use { stream ->
             Channels.newChannel(stream).use { channel ->
                 wordcount.process(channel)
