@@ -53,12 +53,14 @@ fun usingResourceFile(savedAs: String, resourcePath: String, callable: () -> Uni
     }
 }
 
-fun usingTempFile(content: String, callable: (filePath: Path) -> Unit) {
+fun usingTempFile(content: String, callable: (filePath: Path) -> Unit)  = usingTempFile(content.toByteArray(), callable)
+
+fun usingTempFile(content: ByteArray, callable: (filePath: Path) -> Unit) {
     val filePath = Path("${Instant.now().epochSecond}-test.temp.txt")
 
     try {
         filePath.outputStream().buffered().use { outputStream ->
-            outputStream.write(content.toByteArray())
+            outputStream.write(content)
         }
 
         callable(filePath)

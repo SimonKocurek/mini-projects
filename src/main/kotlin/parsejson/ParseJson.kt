@@ -11,7 +11,7 @@ class JsonParsingException(message: String) : RuntimeException(message)
  *
  * @throws JsonParsingException if invalid JSON is provided.
  * @throws StackOverflowError if JSON nesting is too deep
- *  (max depth depends on call-stack size. Should not happen unless JSON has thousands layers of nesting).
+ *  (max depth depends on call-stack size. Should not happen unless JSON has thousands of layers of nesting).
  *
  * @return Object of one of the types:
  *  - Map<String, Any?> (object)

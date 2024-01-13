@@ -2,41 +2,47 @@ package compress
 
 import java.io.File
 import java.io.ObjectOutputStream
-import java.util.BitSet
 import java.util.Comparator
 import java.util.PriorityQueue
+import java.util.Stack
 
 internal class Compressor {
 
-    /**
-     * Create a packed file with `.minzip` extension added.
-     * Packed file has a header with format where each field is 1 byte:
-     * [header length, *[original byte, compressed byte, encoding bits], body expected bytes]
-     */
     fun compress(inputFile: File, outputFile: File) {
-        val frequencies = getByteFrequencies(inputFile)
+        val frequencies = getCharacterFrequencies(inputFile)
         val tree = buildHuffmanTree(frequencies)
         val conversions = toConversions(tree)
 
         // Buffering needed, as we output data byte by byte
         ObjectOutputStream(outputFile.outputStream().buffered()).use { outputStream ->
-            CompressionHeader(conversions, tree.frequency).write(outputStream)
-            compressBodyToStream(conversions, inputFile, outputStream)
+            // Because we write and read in the streaming manner, we first need
+            // to write expected number of bytes in the body to the header, and
+            // only then can we start writing compressed body.
+            val expectedBodyBytes = HeaderWriter(tree, conversions.size).writeToStream(outputStream)
+            val writtenBodyBytes = compressBodyToStream(conversions, inputFile, outputStream)
+
+            if (expectedBodyBytes != writtenBodyBytes) {
+                throw RuntimeException(
+                    "Number of expected bytes to be in the compressed body $expectedBodyBytes does " +
+                            "not match with the number of bytes that were actually written to the body: $writtenBodyBytes. " +
+                            "This should not happen. Please report the issue to the developers."
+                )
+            }
         }
     }
 
     /**
-     * @return Number of occurrences of each byte in the compressed file.
+     * @return Number of occurrences of each character in the compressed file.
      */
-    private fun getByteFrequencies(file: File): Map<Int, Long> = buildMap {
-        file.inputStream().buffered().use { stream ->
+    private fun getCharacterFrequencies(file: File): Map<Int, Long> = buildMap {
+        file.reader().buffered().use { reader ->
             while (true) {
-                val byte = stream.read()
-                if (byte == -1) {
+                val character = reader.read()
+                if (character == -1) {
                     break
                 }
 
-                merge(byte, 1) { current, added -> current + added }
+                merge(character, 1) { current, added -> current + added }
             }
         }
     }
@@ -77,102 +83,214 @@ internal class Compressor {
         val result = PriorityQueue(lowerFrequencyFirst)
 
         val nodes = frequencies.entries.map {
-            TreeNode(
-                frequency = it.value,
-                value = it.key
-            )
+            TreeNode(frequency = it.value, value = it.key)
         }
         result.addAll(nodes)
 
         return result
     }
 
-    private data class TreeNode(
+    internal data class TreeNode(
         val left: TreeNode? = null,
         val right: TreeNode? = null,
-        /** Number of occurrences of bytes from the subtree in the compressed file. */
+        /** Number of occurrences of characters from the subtree in the compressed file. */
         val frequency: Long,
-        /** Byte value, only present in leaf nodes. */
+        /** Original character value, only present in leaf nodes. */
         val value: Int? = null,
     )
 
     /**
-     * @return conversion rules used for mapping each byte to possibly fewer bits.
+     * @return conversion rules used for mapping each character to possibly fewer bits.
+     *  (character can be mapped to more bits than in uncompressed version if it is not frequent)
      */
-    private fun toConversions(tree: TreeNode): List<CompressionConversion> = buildList {
-        // We can use recursion as the tree won't ever be deeper than 64 levels (Int size),
-        // so we don't risk hitting StackOverflowError.
-        addSubtreeConversions(
-            node = tree,
-            currentEncoding = 0,
-            depth = 0,
-            results = this
-        )
-    }
+    private fun toConversions(tree: TreeNode): List<Conversion> = buildList {
+        // Because the tree can get pretty deep when many different characters are used with
+        // very varied frequencies, we should avoid using recursion.
+        val stack = Stack<Triple<TreeNode, Int, List<Boolean>>>()
+        stack.add(Triple(tree, 0, emptyList()))
 
-    private fun addSubtreeConversions(
-        node: TreeNode,
-        currentEncoding: Int,
-        depth: Int,
-        results: MutableList<CompressionConversion>
-    ) {
-        node.value?.let {
-            results.add(
-                CompressionConversion(
-                    originalByte = it,
-                    compressedByte = currentEncoding,
-                    compressedBits = depth
+        while (stack.isNotEmpty()) {
+            val (node, depth, encoding) = stack.pop()
+
+            node.value?.let {
+                add(
+                    Conversion(
+                        originalCharacter = it,
+                        bits = encoding,
+                    )
                 )
-            )
-            return // Technically not needed, since we have value only in leaf nodes
-        }
+            }
 
-        node.left?.let {
-            addSubtreeConversions(
-                node = it,
-                currentEncoding = currentEncoding, // Adding 0 at the 'depth' position wouldn't change anything
-                depth = depth + 1,
-                results = results
-            )
-        }
-        node.right?.let {
-            addSubtreeConversions(
-                node = it,
-                currentEncoding = currentEncoding or (1 shl depth),
-                depth = depth + 1,
-                results = results,
-            )
+            node.left?.let {
+                val newEncoding = encoding.toMutableList().apply { add(false) }
+                stack.add(Triple(it, depth + 1, newEncoding))
+            }
+            node.right?.let {
+                val newEncoding = encoding.toMutableList().apply { add(true) }
+                stack.add(Triple(it, depth + 1, newEncoding))
+            }
         }
     }
 
-    private fun compressBodyToStream(conversions: List<CompressionConversion>, file: File, outputStream: ObjectOutputStream) {
-        val byteConversion = conversions.associateBy { it.originalByte }
+    /**
+     * @return Number of bytes that was written
+     */
+    private fun compressBodyToStream(
+        conversions: List<Conversion>,
+        file: File,
+        outputStream: ObjectOutputStream
+    ): Long {
+        val characterConversion = conversions.associateBy { it.originalCharacter }
 
-        var writtenBits = 0
-        var writtenValue = 0
+        var writtenBytes = 0L
 
-        // Must be buffered because we read Byte by Byte.
-        file.inputStream().buffered().use { inputStream ->
+        var bitsInBuffer = 0
+        var buffer = 0
+
+        // Must be buffered because we read character by character.
+        file.reader().buffered().use { inputStream ->
             while (true) {
-                val readByte = inputStream.read()
-                if (readByte == -1) {
+                val readCharacter = inputStream.read()
+                if (readCharacter == -1) {
                     break
                 }
 
-                val convertedAs = byteConversion[readByte] ?: throw RuntimeException("File contains byte $readByte that was not found when calculating byte frequency table. Is the file being modified?")
+                val convertedAs = characterConversion[readCharacter]
+                    ?: throw RuntimeException("File contains character $readCharacter that was not found when calculating character frequency table. Is the file being modified?")
 
-                writtenBits += convertedAs.compressedBits
-                writtenValue = (writtenValue shl convertedAs.compressedBits) or convertedAs.compressedByte
+                // This could be sped up by using byte chunks instead of setting bit by bit.
+                convertedAs.bits.forEach { bit ->
+                    bitsInBuffer++
+                    buffer = when (bit) {
+                        true -> (buffer shl 1) or 1
+                        false -> (buffer shl 1)
+                    }
 
-                if (writtenBits >= 8) {
-                    writtenBits -= 8
-                    outputStream.writeByte(writtenValue ushr writtenBits)
+                    if (bitsInBuffer == 8) {
+                        bitsInBuffer = 0
+                        writtenBytes++
+                        outputStream.writeByte(buffer)
+                    }
                 }
             }
         }
 
-        if (writtenBits > 0) {
-            outputStream.writeByte(writtenValue)
+        if (bitsInBuffer > 0) {
+            writtenBytes++
+            outputStream.writeByte(buffer)
+        }
+
+        return writtenBytes
+    }
+
+    private data class Conversion(
+        /** Character before compression */
+        val originalCharacter: Int,
+        /** Bits after compression */
+        val bits: List<Boolean>,
+    ) {
+        override fun equals(other: Any?): Boolean = throw UnsupportedOperationException()
+        override fun hashCode() = throw UnsupportedOperationException()
+    }
+}
+
+internal class HeaderWriter(
+    private val tree: Compressor.TreeNode,
+    private val leafCount: Int,
+) {
+
+    /**
+     * @return Number of bytes that is expected to be in the compressed body.
+     */
+    internal fun writeToStream(outputStream: ObjectOutputStream): Long {
+        // Body size
+        val expectedBodyByteCount = getExpectedBodyByteCount()
+        outputStream.writeLong(expectedBodyByteCount)
+
+        // Tree size
+        outputStream.writeInt(leafCount)
+
+        // Tree
+        var nextValueIsLeaf = false
+        getEncodedTree().forEach {
+            if (nextValueIsLeaf) {
+                nextValueIsLeaf = false
+                outputStream.writeInt(it)
+                return@forEach
+            }
+
+            nextValueIsLeaf = it == 0b00
+            outputStream.writeByte(it)
+        }
+
+
+        return expectedBodyByteCount
+    }
+
+    /**
+     * @return The expected number of bytes the compressed body should have.
+     */
+    private fun getExpectedBodyByteCount(): Long {
+        var bits = 0L
+
+        // Because the tree can get pretty deep when many different characters are used with
+        // very varied frequencies, we should avoid using recursion.
+        val stack = Stack<Pair<Compressor.TreeNode, Int>>()
+        stack.add(Pair(tree, 0))
+
+        while (stack.isNotEmpty()) {
+            val (node, depth) = stack.pop()
+
+            if (node.value != null) {
+                bits += node.frequency * depth
+                continue
+            }
+
+            node.left?.let { stack.add(Pair(it, depth + 1)) }
+            node.right?.let { stack.add(Pair(it, depth + 1)) }
+        }
+
+        return bits / 8 + (if (bits % 8 > 0) 1 else 0)
+    }
+
+    /**
+     * @return A list of bits how the tree should be encoded:
+     *  - 00 -> Is leaf
+     *  - 01 -> Has right node
+     *  - 10 -> Has left node
+     *  - 11 -> Has left and right node
+     *  - <full int value> -> original encoding of character
+     */
+    private fun getEncodedTree(): List<Int> = buildList {
+        // Because the tree can get pretty deep when many different characters are used with
+        // very varied frequencies, we should avoid using recursion.
+        val stack = Stack<Compressor.TreeNode>()
+        stack.add(tree)
+
+        while (stack.isNotEmpty()) {
+            val node = stack.pop()
+
+            if (node.value != null) {
+                add(0b00)
+                add(node.value)
+                continue // Technically not needed, but only leaf nodes have value, so we can skip the subtree logic
+            }
+
+            if (node.left != null && node.right != null) {
+                add(0b11)
+                stack.add(node.left)
+                stack.add(node.right)
+                continue
+            }
+
+            node.left?.let {
+                add(0b10)
+                stack.add(it)
+            }
+            node.right?.let {
+                add(0b01)
+                stack.add(it)
+            }
         }
     }
 }

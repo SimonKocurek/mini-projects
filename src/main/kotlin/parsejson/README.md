@@ -3,6 +3,11 @@
 Parser compatible with RFC-8259 JSON standard.
 
 > Throws JsonParsingException if invalid JSON is provided.
+> 
+> Throws StackOverflowError if JSON nesting is too deep. 
+>   Maximum depth depends on the call-stack size. 
+>   This should not happen unless the provided  JSON has thousands of layers of nesting.
+
 
 > Return Object of one of the types:
 > - `Map<String, Any?>` - object
