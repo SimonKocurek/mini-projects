@@ -6,36 +6,25 @@ import java.util.Comparator
 import java.util.PriorityQueue
 import java.util.Stack
 
-internal class Compressor {
+internal class Packer {
 
-    fun compress(inputFile: File, outputFile: File) {
+    fun pack(inputFile: File, outputFile: File) {
         val frequencies = getCharacterFrequencies(inputFile)
         val tree = buildHuffmanTree(frequencies)
         val conversions = toConversions(tree)
 
         // Buffering needed, as we output data byte by byte
         ObjectOutputStream(outputFile.outputStream().buffered()).use { outputStream ->
-            // Because we write and read in the streaming manner, we first need
-            // to write expected number of bytes in the body to the header, and
-            // only then can we start writing compressed body.
-            val expectedBodyBytes = HeaderWriter(tree, conversions.size).writeToStream(outputStream)
-            val writtenBodyBytes = compressBodyToStream(conversions, inputFile, outputStream)
-
-            if (expectedBodyBytes != writtenBodyBytes) {
-                throw RuntimeException(
-                    "Number of expected bytes to be in the compressed body $expectedBodyBytes does " +
-                            "not match with the number of bytes that were actually written to the body: $writtenBodyBytes. " +
-                            "This should not happen. Please report the issue to the developers."
-                )
-            }
+            HeaderWriter(tree).writeToStream(outputStream)
+            packBodyToStream(conversions, inputFile, outputStream)
         }
     }
 
     /**
-     * @return Number of occurrences of each character in the compressed file.
+     * @return Number of occurrences of each character in the packed file.
      */
     private fun getCharacterFrequencies(file: File): Map<Int, Long> = buildMap {
-        file.reader().buffered().use { reader ->
+        file.bufferedReader().use { reader ->
             while (true) {
                 val character = reader.read()
                 if (character == -1) {
@@ -106,8 +95,7 @@ internal class Compressor {
     private fun toConversions(tree: TreeNode): List<Conversion> = buildList {
         // Because the tree can get pretty deep when many different characters are used with
         // very varied frequencies, we should avoid using recursion.
-        val stack = Stack<Triple<TreeNode, Int, List<Boolean>>>()
-        stack.add(Triple(tree, 0, emptyList()))
+        val stack = Stack<Triple<TreeNode, Int, List<Boolean>>>().apply { add(Triple(tree, 0, emptyList())) }
 
         while (stack.isNotEmpty()) {
             val (node, depth, encoding) = stack.pop()
@@ -132,23 +120,14 @@ internal class Compressor {
         }
     }
 
-    /**
-     * @return Number of bytes that was written
-     */
-    private fun compressBodyToStream(
-        conversions: List<Conversion>,
-        file: File,
-        outputStream: ObjectOutputStream
-    ): Long {
+    private fun packBodyToStream(conversions: List<Conversion>, file: File, outputStream: ObjectOutputStream) {
         val characterConversion = conversions.associateBy { it.originalCharacter }
-
-        var writtenBytes = 0L
 
         var bitsInBuffer = 0
         var buffer = 0
 
         // Must be buffered because we read character by character.
-        file.reader().buffered().use { inputStream ->
+        file.bufferedReader().use { inputStream ->
             while (true) {
                 val readCharacter = inputStream.read()
                 if (readCharacter == -1) {
@@ -168,7 +147,6 @@ internal class Compressor {
 
                     if (bitsInBuffer == 8) {
                         bitsInBuffer = 0
-                        writtenBytes++
                         outputStream.writeByte(buffer)
                     }
                 }
@@ -176,11 +154,8 @@ internal class Compressor {
         }
 
         if (bitsInBuffer > 0) {
-            writtenBytes++
             outputStream.writeByte(buffer)
         }
-
-        return writtenBytes
     }
 
     private data class Conversion(
@@ -194,24 +169,19 @@ internal class Compressor {
     }
 }
 
-internal class HeaderWriter(
-    private val tree: Compressor.TreeNode,
-    private val leafCount: Int,
-) {
+internal class HeaderWriter(private val tree: Packer.TreeNode) {
 
-    /**
-     * @return Number of bytes that is expected to be in the compressed body.
-     */
-    internal fun writeToStream(outputStream: ObjectOutputStream): Long {
+    internal fun writeToStream(outputStream: ObjectOutputStream) {
         // Body size
-        val expectedBodyByteCount = getExpectedBodyByteCount()
-        outputStream.writeLong(expectedBodyByteCount)
-
-        // Tree size
-        outputStream.writeInt(leafCount)
+        outputStream.writeLong(tree.frequency)
 
         // Tree
+        writeTreeToStream(outputStream)
+    }
+
+    private fun writeTreeToStream(outputStream: ObjectOutputStream) {
         var nextValueIsLeaf = false
+
         getEncodedTree().forEach {
             if (nextValueIsLeaf) {
                 nextValueIsLeaf = false
@@ -222,35 +192,6 @@ internal class HeaderWriter(
             nextValueIsLeaf = it == 0b00
             outputStream.writeByte(it)
         }
-
-
-        return expectedBodyByteCount
-    }
-
-    /**
-     * @return The expected number of bytes the compressed body should have.
-     */
-    private fun getExpectedBodyByteCount(): Long {
-        var bits = 0L
-
-        // Because the tree can get pretty deep when many different characters are used with
-        // very varied frequencies, we should avoid using recursion.
-        val stack = Stack<Pair<Compressor.TreeNode, Int>>()
-        stack.add(Pair(tree, 0))
-
-        while (stack.isNotEmpty()) {
-            val (node, depth) = stack.pop()
-
-            if (node.value != null) {
-                bits += node.frequency * depth
-                continue
-            }
-
-            node.left?.let { stack.add(Pair(it, depth + 1)) }
-            node.right?.let { stack.add(Pair(it, depth + 1)) }
-        }
-
-        return bits / 8 + (if (bits % 8 > 0) 1 else 0)
     }
 
     /**
@@ -264,8 +205,7 @@ internal class HeaderWriter(
     private fun getEncodedTree(): List<Int> = buildList {
         // Because the tree can get pretty deep when many different characters are used with
         // very varied frequencies, we should avoid using recursion.
-        val stack = Stack<Compressor.TreeNode>()
-        stack.add(tree)
+        val stack = Stack<Packer.TreeNode>().apply { add(tree) }
 
         while (stack.isNotEmpty()) {
             val node = stack.pop()

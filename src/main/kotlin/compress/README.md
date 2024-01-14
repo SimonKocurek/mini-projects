@@ -3,13 +3,13 @@
 ```
 Usage: compress [<options>] <file>
 
-  Compress files to decrease their size. Unpack files to retrieve the original.
+  Pack files to decrease their size. Unpack files to retrieve the original.
 
-  Files are compressed using Huffman encoding.
+  Files are packed using Huffman encoding.
 
-  ▎ On an empty file prints stderr error instead of processing.
+  ▎ On an empty file outputs stderr error instead of processing.
 
-  ▎ If a file with name specified in --output argument already exists, prints
+  ▎ If a file with name specified in --output argument already exists, outputs
   ▎ error and stops.
 
   Examples:
@@ -23,12 +23,11 @@ Usage: compress [<options>] <file>
   ╰──────────────────────────────────────────────────────╯
 
 Options:
-  -u, --unpack         If specified, file will be unpacked as opposed to
-                       compressed.
+  -u, --unpack         If specified, file will be unpacked.
   -o, --output=<text>  Name of the generated file. If no name is provided,
                        '.minzip' will be added/removed from the input file.
   -h, --help           Show this message and exit
 
 Arguments:
-  <file>  File to compress/unpack.
+  <file>  File to pack/unpack.
 ```

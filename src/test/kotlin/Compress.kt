@@ -47,7 +47,7 @@ class Compress {
             // Then
             assertEquals(
                 "test.txt.minzip (deflated to 57%)\n" +
-                        "test.txt.unzipped (inflated to 1100%)\n",
+                        "test.txt.unzipped (inflated to 175%)\n",
                 stdOut.toString()
             )
             assertEquals("", stdErr.toString())
@@ -91,8 +91,8 @@ class Compress {
                 // Then
                 // With small files and many distinct characters, the header causes file to increase in size
                 assertEquals(
-                    "${tempFile.name}.minzip (deflated to 538%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 28%)\n",
+                    "${tempFile.name}.minzip (deflated to 488%)\n" +
+                            "${tempFile.name}.unzipped (inflated to 21%)\n",
                     stdOut.toString()
                 )
                 assertEquals("", stdErr.toString())
@@ -108,15 +108,15 @@ class Compress {
     fun singleCharacter() {
         // Given
         captureStreams { stdOut, stdErr ->
-            usingTempFile("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") { tempFile ->
+            usingTempFile("A".repeat(5000)) { tempFile ->
                 // When
                 CompressCli().main(listOf(tempFile.name))
                 CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
 
                 // Then
                 assertEquals(
-                    "${tempFile.name}.minzip (deflated to 60%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 208%)\n",
+                    "${tempFile.name}.minzip (deflated to 13%)\n" +
+                            "${tempFile.name}.unzipped (inflated to 772%)\n",
                     stdOut.toString()
                 )
                 assertEquals("", stdErr.toString())
@@ -133,16 +133,15 @@ class Compress {
     fun nonText() {
         // Given
         captureStreams { stdOut, stdErr ->
-            usingTempFile(ByteArray(255).mapIndexed { index, _ -> index.toByte() }.toByteArray()) { tempFile ->
+            usingTempFile(ByteArray(5000).mapIndexed { index, _ -> index.toByte() }.toByteArray()) { tempFile ->
                 // When
                 CompressCli().main(listOf(tempFile.name))
                 CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
 
                 // Then
-                // With small files and many distinct characters, the header causes file to increase in size
                 assertEquals(
-                    "${tempFile.name}.minzip (deflated to 368%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 208%)\n",
+                    "${tempFile.name}.minzip (deflated to 73%)\n" +
+                            "${tempFile.name}.unzipped (inflated to 269%)\n",
                     stdOut.toString()
                 )
                 assertEquals("", stdErr.toString())
@@ -181,8 +180,8 @@ class Compress {
                 // Then
                 // With small files and many distinct characters, the header causes file to increase in size
                 assertEquals(
-                    "${tempFile.name}.minzip (deflated to 177%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 208%)\n",
+                    "${tempFile.name}.minzip (deflated to 167%)\n" +
+                            "${tempFile.name}.unzipped (inflated to 93%)\n",
                     stdOut.toString()
                 )
                 assertEquals("", stdErr.toString())
@@ -190,7 +189,8 @@ class Compress {
                 Files.readAllBytes(tempFile)
 
                 assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
-                assertTrue(tempFile.toFile().length() > File("${tempFile.name}.minzip").length())
+                // With small files and many distinct characters, the header causes file to increase in size
+                assertTrue(tempFile.toFile().length() < File("${tempFile.name}.minzip").length())
             }
         }
     }

@@ -16,14 +16,14 @@ fun main(args: Array<String>) {
 class CompressCli : CliktCommand(
     name = "compress",
     help = """
-        Compress files to decrease their size.
+        Pack files to decrease their size.
         Unpack files to retrieve the original.
 
-        Files are compressed using Huffman encoding.
+        Files are packed using Huffman encoding.
         
-        > On an empty file prints stderr error instead of processing. 
+        > On an empty file outputs stderr error instead of processing. 
         
-        > If a file with name specified in --output argument already exists, prints error and stops.
+        > If a file with name specified in --output argument already exists, outputs error and stops.
         
         Examples:
         ```bash
@@ -41,7 +41,7 @@ class CompressCli : CliktCommand(
     private val unpack by option(
         "-u",
         "--unpack",
-        help = "If specified, file will be unpacked as opposed to compressed."
+        help = "If specified, file will be unpacked."
     ).flag()
 
     private val outputName by option(
@@ -50,7 +50,7 @@ class CompressCli : CliktCommand(
         help = "Name of the generated file. If no name is provided, '.minzip' will be added/removed from the input file."
     )
 
-    private val file by argument(help = "File to compress/unpack.").file(
+    private val file by argument(help = "File to pack/unpack.").file(
         mustExist = true,
         canBeDir = false,
         mustBeReadable = true
@@ -65,7 +65,7 @@ class CompressCli : CliktCommand(
         if (unpack) {
             unpackFile()
         } else {
-            compressFile()
+            packFile()
         }
     }
 
@@ -78,7 +78,7 @@ class CompressCli : CliktCommand(
         }
 
         if (outputFile.exists()) {
-            System.err.println("File ${outputFile.name} already exists. Not compressing.")
+            System.err.println("File ${outputFile.name} already exists. Not unpacking.")
             return
         }
 
@@ -88,14 +88,14 @@ class CompressCli : CliktCommand(
         println("${outputFile.name} (inflated to ${inflatedPercent.roundToInt()}%)")
     }
 
-    private fun compressFile() {
+    private fun packFile() {
         val outputFile = File(outputName ?: "${file.absolutePath}.minzip")
         if (outputFile.exists()) {
-            System.err.println("File ${outputFile.name} already exists. Not compressing.")
+            System.err.println("File ${outputFile.name} already exists. Not packing.")
             return
         }
 
-        Compressor().compress(file, outputFile)
+        Packer().pack(file, outputFile)
 
         val deflatedPercent = outputFile.length() / file.length().toDouble() * 100
         println("${outputFile.name} (deflated to ${deflatedPercent.roundToInt()}%)")

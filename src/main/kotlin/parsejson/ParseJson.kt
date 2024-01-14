@@ -23,7 +23,7 @@ class JsonParsingException(message: String) : RuntimeException(message)
  */
 fun parseJson(value: String): Any? {
     // For possible future improvements, we parse the JSON in a single pass using buffer.
-    // This implementation could be then easily improved to read an input stream.
+    // This implementation could be then easily improved to read an input stream instead of string.
     val buffer = CharBuffer.wrap(value)
     val result = ParsingInstance(buffer).parseValue()
 
@@ -50,6 +50,9 @@ private class ParsingInstance(private val buffer: CharBuffer) {
     fun parseValue(): Any? {
         parseWhitespace()
 
+        // The recursive nesting here introduces the option of StackOverflowError.
+        // We could fix that by separating streaming token reader with parser that
+        // interprets those tokens (e.g., OBJECT_START, STRING, ARRAY_START, ARRAY_END, OBJECT_END)
         val starter = buffer.peek(onEndOfInput = "Expected JSON value")
         val result: Any? = when {
             starter == '{' -> parseObject()
