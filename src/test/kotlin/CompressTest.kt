@@ -9,7 +9,7 @@ import kotlin.io.path.*
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class Compress {
+class CompressTest {
 
     companion object {
         private fun getZipFileStream() = Companion::class.java.getResourceAsStream("compress/test.zip")!!

@@ -8,7 +8,7 @@ import kotlin.io.path.Path
 import kotlin.test.assertEquals
 
 
-class WordCount {
+class WordCountTest {
 
     companion object {
         private fun getZipFileStream() = Companion::class.java.getResourceAsStream("wordcount/test.txt.zip")!!

@@ -9,7 +9,7 @@ import kotlin.streams.toList
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class ParseJson {
+class ParseJsonTest {
 
     companion object {
         private fun getZipFileStream() = Companion::class.java.getResourceAsStream("parsejson/test.zip")!!
