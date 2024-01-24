@@ -257,7 +257,7 @@ private class ParsingInstance(private val buffer: CharBuffer) {
                 Char(characterCode.toInt(16))
             }
 
-            else -> throw error("Expected one of ${escapedCharacterMapping.keys.joinToString()},u to be escaped, but got '${buffer.peek()}'")
+            else -> throw error("Expected one of ${escapedCharacterMapping.keys.joinToString()}, u to be escaped, but got '${buffer.peek()}'")
         }
     }
 
