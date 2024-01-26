@@ -17,8 +17,9 @@ data class Entry(
 /**
  * @param entry Inserted data that should be searchable by indexed text.
  * @throws IllegalArgumentException Entry with such ID already exists.
+ * @return Inserted entry.
  */
-fun insert(entry: Entry)
+fun insert(entry: Entry): Entry
 
 /**
  * @param searchText Text to search by.
@@ -28,9 +29,9 @@ fun find(searchText: String): List<Entry>
 
 /**
  * Removes entry with particular ID from the index.
- * @throws IllegalArgumentException Entry with such ID does not exist.
+ * @return Removed entry. `null` if entry did not exist.
  */
-fun delete(id: UUID)
+fun delete(id: UUID): Entry?
 ```
 
 ## Example usage

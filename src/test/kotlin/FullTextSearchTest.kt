@@ -76,4 +76,68 @@ class FullTextSearchTest {
         )
     }
 
+    @Test
+    fun canFindInsertedData() {
+        // Given
+        val searchEngine = InMemoryFullTextSearch(WordTokenizer())
+
+        val firstEntry = searchEngine.insert(
+            FullTextSearch.Entry(
+                indexedText = "     A b c.,d e ",
+                document = mapOf("foo" to "bar")
+            )
+        )
+        val secondEntry = searchEngine.insert(
+            FullTextSearch.Entry(
+                indexedText = "D d efgh e d",
+                document = mapOf("foo2" to "bar2")
+            )
+        )
+        searchEngine.insert(
+            FullTextSearch.Entry(
+                indexedText = " a a a a a ",
+                document = mapOf("should" to "not be returned")
+            )
+        )
+
+        // When
+        val firstResult = searchEngine.find("   b c")
+        val commonResult = searchEngine.find(",D. E")
+        val secondResult = searchEngine.find("  Ëfğh   ")
+
+        // Then
+        assertEquals(listOf(firstEntry), firstResult)
+        assertEquals(
+            listOf(secondEntry, firstEntry),
+            commonResult,
+            "Second entry should be first as it is more specific."
+        )
+        assertEquals(listOf(secondEntry), secondResult)
+    }
+
+    @Test
+    fun canDeleteEntries() {
+        // Given
+        val searchEngine = InMemoryFullTextSearch(WordTokenizer())
+
+        val firstEntry = searchEngine.insert(
+            FullTextSearch.Entry(
+                indexedText = "a",
+                document = mapOf("foo" to "bar")
+            )
+        )
+        val secondEntry = searchEngine.insert(
+            FullTextSearch.Entry(
+                indexedText = "a b",
+                document = mapOf("foo2" to "bar2")
+            )
+        )
+
+        // When
+        searchEngine.delete(firstEntry.id)
+
+        // Then
+        val result = searchEngine.find("Á")
+        assertEquals(listOf(secondEntry), result)
+    }
 }

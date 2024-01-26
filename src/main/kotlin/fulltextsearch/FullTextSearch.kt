@@ -24,8 +24,9 @@ interface FullTextSearch {
     /**
      * @param entry Inserted data that should be searchable by indexed text.
      * @throws IllegalArgumentException Entry with such ID already exists.
+     * @return Inserted entry.
      */
-    fun insert(entry: Entry)
+    fun insert(entry: Entry): Entry
 
     /**
      * @param searchText Text to search by.
@@ -35,9 +36,9 @@ interface FullTextSearch {
 
     /**
      * Removes entry with particular ID from the index.
-     * @throws IllegalArgumentException Entry with such ID does not exist.
+     * @return Removed entry. `null` if entry did not exist.
      */
-    fun delete(id: UUID)
+    fun delete(id: UUID): Entry?
 }
 
 /**
@@ -53,7 +54,7 @@ class InMemoryFullTextSearch(private val tokenizer: Tokenizer) : FullTextSearch 
     /** Mapping of entry ID to the stored entry. */
     private val entryById = ConcurrentHashMap<UUID, SavedEntry>()
 
-    override fun insert(entry: FullTextSearch.Entry) {
+    override fun insert(entry: FullTextSearch.Entry): FullTextSearch.Entry {
         val tokens = tokenizer.tokenizeText(entry.indexedText)
 
         // We need to lock the entry, so that calling insert and delete at the same time would not result
@@ -80,6 +81,8 @@ class InMemoryFullTextSearch(private val tokenizer: Tokenizer) : FullTextSearch 
                     .mapValues { (key, value) -> value.size }
             )
         }
+
+        return entry
     }
 
     override fun find(searchText: String): List<FullTextSearch.Entry> {
@@ -126,7 +129,7 @@ class InMemoryFullTextSearch(private val tokenizer: Tokenizer) : FullTextSearch 
         }
     }
 
-    override fun delete(id: UUID) {
+    override fun delete(id: UUID): FullTextSearch.Entry? {
         val entry = entryById[id]?.entry ?: throw IllegalArgumentException("Entry with ID $id was not saved")
         val tokens = tokenizer.tokenizeText(entry.indexedText)
 
@@ -144,7 +147,7 @@ class InMemoryFullTextSearch(private val tokenizer: Tokenizer) : FullTextSearch 
                 }
             }
 
-            entryById.remove(id)
+            return entryById.remove(id)?.entry
         }
     }
 
