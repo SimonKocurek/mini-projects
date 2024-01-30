@@ -13,16 +13,15 @@ Example usage:
 
 ```kotlin
 import base64coding.Base64DecodingException
-import base64coding.decodeBase64
-import base64coding.encodeBase64
+import base64coding.decodeBase64ToBytes
+import base64coding.encodeToBase64String
 
-val data = File("img.jpg").readBytes()
-val encoded: String = encodeBase64(data) // "/9j/4VHrRXhpZgA...f/9k="
+val encoded = File("img.jpg").readBytes().encodeToBase64String() // "/9j/4VHrRXhpZgA...f/9k="
 
-// ... transfer image as text ...
+// ... transfer image as base64 text ...
 
-val decodedData: ByteArray = try {
-    decodeBase64(encoded)
+val decodedData = try {
+    encoded.decodeBase64ToBytes()
 } catch (e: Base64DecodingException) {
     log.exception("Decoding base64 image payload failed", e)
     throw e

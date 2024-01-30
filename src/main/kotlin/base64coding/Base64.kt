@@ -1,21 +1,26 @@
 package base64coding
 
+import java.nio.CharBuffer
+
 class Base64DecodingException(message: String) : IllegalArgumentException(message)
 
 /**
  * Encode bytes into a text form.
  */
-fun encodeBase64(encoded: ByteArray) = buildString {
-    val byteIterator = encoded.iterator()
-    // Since base64 needs only 6 bits per character, we can simplify serialization by
-    // using batches of 3 bytes encoded as 4 characters.
-    while (byteIterator.hasNext()) {
-        appendBatchOf4Characters(byteIterator)
+fun ByteArray.encodeToBase64String(): String {
+    val byteIterator = iterator()
+
+    return buildString {
+        // Since base64 needs only 6 bits per character, we can simplify serialization by
+        // using batches of 3 bytes encoded as 4 characters.
+        while (byteIterator.hasNext()) {
+            appendBatchOf4Characters(byteIterator)
+        }
     }
 }
 
 private fun StringBuilder.appendBatchOf4Characters(byteIterator: ByteIterator) {
-    val byte1End = appendNextCharacter(
+    val byte1End = appendNextOctet(
         byte = byteIterator.nextByte().toInt(), leftoverBits = 0, remainingBitCount = 2
     )
     if (!byteIterator.hasNext()) {
@@ -24,7 +29,7 @@ private fun StringBuilder.appendBatchOf4Characters(byteIterator: ByteIterator) {
         return
     }
 
-    val byte2End = appendNextCharacter(
+    val byte2End = appendNextOctet(
         byte = byteIterator.nextByte().toInt(), leftoverBits = byte1End, remainingBitCount = 4
     )
     if (!byteIterator.hasNext()) {
@@ -33,7 +38,7 @@ private fun StringBuilder.appendBatchOf4Characters(byteIterator: ByteIterator) {
         return
     }
 
-    val byte3End = appendNextCharacter(
+    val byte3End = appendNextOctet(
         byte = byteIterator.nextByte().toInt(), leftoverBits = byte2End, remainingBitCount = 6
     )
     append(base64Alphabet[byte3End])
@@ -42,9 +47,10 @@ private fun StringBuilder.appendBatchOf4Characters(byteIterator: ByteIterator) {
 /**
  * @return remaining bits.
  */
-private fun StringBuilder.appendNextCharacter(byte: Int, leftoverBits: Int, remainingBitCount: Int): Int {
+private fun StringBuilder.appendNextOctet(byte: Int, leftoverBits: Int, remainingBitCount: Int): Int {
     val byteStart = byte ushr remainingBitCount
-    append(base64Alphabet[leftoverBits or byteStart])
+    val octet = base64Alphabet[leftoverBits or byteStart] // The character could be encoded using 6 bits
+    append(octet)
 
     val endBitsMask = (1 shl remainingBitCount) - 1
     val byteEnd = (byte and endBitsMask) shl (6 - remainingBitCount)
@@ -56,52 +62,50 @@ private fun StringBuilder.appendNextCharacter(byte: Int, leftoverBits: Int, rema
  * Decode Base64 encoded string (with optional padding) to bytes that were used to generate it.
  * @throws Base64DecodingException if decoding fails due to encountering unsupported character.
  */
-fun decodeBase64(decoded: String): ByteArray = buildList {
-    var index = 0
+fun String.decodeBase64ToBytes(): ByteArray {
+    val charBuffer = CharBuffer.wrap(this)
 
-    // Since base64 needs only 6 bits per character, we can simplify serialization by
-    // using batches of 4 characters decoded as 3 bytes.
-    while (index < decoded.length) {
-        val isFinalChunk = index + 4 >= decoded.length
+    return buildList {
+        // Since base64 needs only 6 bits per character, we can simplify serialization by
+        // using batches of 4 characters decoded as 3 bytes.
+        while (charBuffer.hasRemaining()) {
+            val isFinalChunk = charBuffer.remaining() <= 4
 
-        val char1 = decoded[index++]
-        val bits1 = base64CharacterToBits[char1]
-            ?: throw Base64DecodingException("Got unexpected character $char1 (index ${index - 1}) at the start of byte ${size + 1}. Valid characters are: '$base64Alphabet'.")
+            val octet1 = charBuffer.getNextOctet()
+            val octet2 = charBuffer.getNextOctet()
+            addByte(octet1, octet2, bitsFromSecondOctet = 2)
 
-        val char2 = if (index < decoded.length) {
-            decoded[index++]
-        } else throw Base64DecodingException("Expected 2 characters at the start of each 4 character chunk. No second character found when decoding byte ${size + 1}.")
-        val bits2 = base64CharacterToBits[char2]
-            ?: throw Base64DecodingException("Got unexpected character $char2 (index ${index - 1}) at the end of byte ${size + 1}. Valid characters are: '$base64Alphabet'.")
+            if (isFinalChunk && charBuffer.reachedPadding()) {
+                break
+            }
+            val octet3 = charBuffer.getNextOctet()
+            addByte(octet2, octet3, bitsFromSecondOctet = 4)
 
-        val byte1 = (bits1 shl 2) or (bits2 ushr 4)
-        add(byte1.toByte())
-
-        if (isFinalChunk && (index >= decoded.length || decoded[index] == '=')) {
-            // We have reached the end of the (non-padded) input.
-            break
+            if (isFinalChunk && charBuffer.reachedPadding()) {
+                break
+            }
+            val octet4 = charBuffer.getNextOctet()
+            addByte(octet3, octet4, bitsFromSecondOctet = 6)
         }
+    }.toByteArray()
+}
 
-        val char3 = decoded[index++]
-        val bits3 = base64CharacterToBits[char3]
-            ?: throw Base64DecodingException("Got unexpected character $char3 (index ${index - 1}) at the start of byte ${size + 1}. Valid characters are: '$base64Alphabet'.")
+private fun CharBuffer.getNextOctet(): Int {
+    val character = if (hasRemaining()) {
+        get()
+    } else throw Base64DecodingException("Expected a valid base64 character at position ${position() - 1}. No character was found.")
 
-        val byte2 = ((bits2 and 0b1111) shl 4) or (bits3 ushr 2)
-        add(byte2.toByte())
+    return base64CharacterToBits[character]
+        ?: throw Base64DecodingException("Got unexpected character $character at position ${position() - 1}. Valid characters are: '$base64Alphabet'.")
+}
 
-        if (isFinalChunk && (index >= decoded.length || decoded[index] == '=')) {
-            // We have reached the end of the (non-padded) input.
-            break
-        }
+private fun MutableList<Byte>.addByte(octet1: Int, octet2: Int, bitsFromSecondOctet: Int) {
+    val octet1Mask = (1 shl (8 - bitsFromSecondOctet)) - 1
+    val byte1 = ((octet1 and octet1Mask) shl bitsFromSecondOctet) or (octet2 ushr (6 - bitsFromSecondOctet))
+    add(byte1.toByte())
+}
 
-        val char4 = decoded[index++]
-        val bits4 = base64CharacterToBits[char4]
-            ?: throw Base64DecodingException("Got unexpected character $char4 (index ${index - 1}) at the end of byte ${size + 1}. Valid characters are: '$base64Alphabet'.")
-
-        val byte3 = ((bits3 and 0b11) shl 6) or bits4
-        add(byte3.toByte())
-    }
-}.toByteArray()
+private fun CharBuffer.reachedPadding() = !hasRemaining() || this[position()] == '='
 
 // RFC 4648 §4 variant of the alphabet
 private const val base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
