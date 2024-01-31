@@ -7,7 +7,7 @@ characters, limited to a set of 64 unique characters.
 
 Base64 encoding causes an overhead of 33–37%, so it should be used only when transferring text is the only option.
 
-> Throws Base64DecodingException if decoding fails due to encountering unsupported character.
+> Throws Base64DecodingException if decoding fails due to encountering an unexpected character.
 
 Example usage:
 

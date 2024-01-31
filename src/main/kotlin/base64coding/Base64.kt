@@ -11,8 +11,8 @@ fun ByteArray.encodeToBase64String(): String {
     val byteIterator = iterator()
 
     return buildString {
-        // Since base64 needs only 6 bits per character, we can simplify serialization by
-        // using batches of 3 bytes encoded as 4 characters.
+        // Since base64 needs only 6 bits (octet) per character, we can simplify
+        // the serialization by using batches of 3 bytes encoded as 4 characters.
         while (byteIterator.hasNext()) {
             appendBatchOf4Characters(byteIterator)
         }
@@ -20,37 +20,37 @@ fun ByteArray.encodeToBase64String(): String {
 }
 
 private fun StringBuilder.appendBatchOf4Characters(byteIterator: ByteIterator) {
-    val byte1End = appendNextOctet(
+    val byte1End = appendNextCharacter(
         byte = byteIterator.nextByte().toInt(), leftoverBits = 0, remainingBitCount = 2
     )
     if (!byteIterator.hasNext()) {
-        append(base64Alphabet[byte1End])
+        append(octetToCharacter[byte1End])
         append("==") // Padding so that decoder can read batches of 4 characters
         return
     }
 
-    val byte2End = appendNextOctet(
+    val byte2End = appendNextCharacter(
         byte = byteIterator.nextByte().toInt(), leftoverBits = byte1End, remainingBitCount = 4
     )
     if (!byteIterator.hasNext()) {
-        append(base64Alphabet[byte2End])
+        append(octetToCharacter[byte2End])
         append("=") // Padding so that decoder can read batches of 4 characters
         return
     }
 
-    val byte3End = appendNextOctet(
+    val byte3End = appendNextCharacter(
         byte = byteIterator.nextByte().toInt(), leftoverBits = byte2End, remainingBitCount = 6
     )
-    append(base64Alphabet[byte3End])
+    append(octetToCharacter[byte3End])
 }
 
 /**
  * @return remaining bits.
  */
-private fun StringBuilder.appendNextOctet(byte: Int, leftoverBits: Int, remainingBitCount: Int): Int {
+private fun StringBuilder.appendNextCharacter(byte: Int, leftoverBits: Int, remainingBitCount: Int): Int {
     val byteStart = byte ushr remainingBitCount
-    val octet = base64Alphabet[leftoverBits or byteStart] // The character could be encoded using 6 bits
-    append(octet)
+    val character = octetToCharacter[leftoverBits or byteStart]
+    append(character)
 
     val endBitsMask = (1 shl remainingBitCount) - 1
     val byteEnd = (byte and endBitsMask) shl (6 - remainingBitCount)
@@ -60,14 +60,14 @@ private fun StringBuilder.appendNextOctet(byte: Int, leftoverBits: Int, remainin
 
 /**
  * Decode Base64 encoded string (with optional padding) to bytes that were used to generate it.
- * @throws Base64DecodingException if decoding fails due to encountering unsupported character.
+ * @throws Base64DecodingException if decoding fails due to encountering an unexpected character.
  */
 fun String.decodeBase64ToBytes(): ByteArray {
     val charBuffer = CharBuffer.wrap(this)
 
     return buildList {
-        // Since base64 needs only 6 bits per character, we can simplify serialization by
-        // using batches of 4 characters decoded as 3 bytes.
+        // Since base64 needs only 6 bits (octet) per character, we can simplify
+        // the serialization by using batches of 4 characters decoded as 3 bytes.
         while (charBuffer.hasRemaining()) {
             val isFinalChunk = charBuffer.remaining() <= 4
 
@@ -95,8 +95,8 @@ private fun CharBuffer.getNextOctet(): Int {
         get()
     } else throw Base64DecodingException("Expected a valid base64 character at position ${position() - 1}. No character was found.")
 
-    return base64CharacterToBits[character]
-        ?: throw Base64DecodingException("Got unexpected character $character at position ${position() - 1}. Valid characters are: '$base64Alphabet'.")
+    return characterToOctet[character]
+        ?: throw Base64DecodingException("Got unexpected character $character at position ${position() - 1}. Valid characters are: '$octetToCharacter'.")
 }
 
 private fun MutableList<Byte>.addByte(octet1: Int, octet2: Int, bitsFromSecondOctet: Int) {
@@ -108,5 +108,5 @@ private fun MutableList<Byte>.addByte(octet1: Int, octet2: Int, bitsFromSecondOc
 private fun CharBuffer.reachedPadding() = !hasRemaining() || this[position()] == '='
 
 // RFC 4648 §4 variant of the alphabet
-private const val base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-private val base64CharacterToBits = base64Alphabet.withIndex().associateBy({ it.value }, { it.index })
+private const val octetToCharacter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+private val characterToOctet = octetToCharacter.withIndex().associateBy({ it.value }, { it.index })
