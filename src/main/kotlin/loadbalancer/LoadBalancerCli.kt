@@ -1,10 +1,13 @@
 package loadbalancer
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
+import java.net.URL
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -14,9 +17,13 @@ fun main(args: Array<String>) {
 }
 
 class LoadBalancerCli : CliktCommand(
-    help = """
-    """.trimIndent(),
     name = "loadbalancer",
+    help = """
+        Distribute traffic using Round-robin algorithm equally between multiple HTTP downstream servers.
+        
+        Perform a simple passive healthcheck and route traffic only to healthy downstream servers.
+    """.trimIndent(),
+    printHelpOnEmptyArgs = true
 ) {
 
     private val port by option(
@@ -47,9 +54,28 @@ class LoadBalancerCli : CliktCommand(
         help = "Number of seconds after which idle threads will be released from thread pool. Default: 60."
     ).long().default(60)
 
+    private val loadBalancingRecoveryTimeout by option(
+        "--loadBalancingRecoveryTimeout",
+        help = "Number of seconds when no traffic will be sent to an unhealthy downstream server. " +
+                "Downstream server is marked as unhealthy if establishing a connection to it fails. " +
+                "Default: 60."
+    ).int().default(60)
+
+    private val downstreamServers by argument(
+        name = "downstream servers",
+        help = "URLs in format: <scheme>://<authority><path> without query params or fragment " +
+                "of downstream servers where traffic will be forwarded."
+    ).multiple(required = true)
+
+    private lateinit var gracefulShutdownServer: GracefulShutdownServer
+
     override fun run() {
         val loadBalancer = RoundRobinLoadBalancer(
-            servers = emptyList()
+            downstreamServers = downstreamServers.map { URL(it) },
+            recoveryTimeoutSeconds = loadBalancingRecoveryTimeout
+        )
+        val requestHandler = LoadBalancedRequestHandler(
+            loadBalancer = loadBalancer
         )
 
         val threadPool = ThreadPoolExecutor(
@@ -60,12 +86,14 @@ class LoadBalancerCli : CliktCommand(
             SynchronousQueue()
         )
 
-        val gracefulShutdownServer = GracefulShutdownServer(
-            requestHandler = loadBalancer,
+        gracefulShutdownServer = GracefulShutdownServer(
+            requestHandler = requestHandler,
             threadPool = threadPool,
             port = port,
             gracefulShutdownSeconds = gracefulShutdownSeconds,
         )
         gracefulShutdownServer.start()
     }
+
+    fun stop() = gracefulShutdownServer.stop()
 }

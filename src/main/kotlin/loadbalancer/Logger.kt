@@ -8,7 +8,7 @@ internal object LoggerFactory {
 }
 
 internal interface Logger {
-    fun log(eventName: String, data: Map<String, Any> = emptyMap())
+    fun log(eventName: String, data: Map<String, Any?> = emptyMap())
 
     fun useContext(key: String, value: String, block: () -> Unit)
 }
@@ -19,9 +19,13 @@ private class ConsoleLogger(private val name: String) : Logger {
         private val context = ThreadLocal<MutableMap<String, String>>()
     }
 
-    override fun log(eventName: String, data: Map<String, Any>) {
+    override fun log(eventName: String, data: Map<String, Any?>) {
         // For better performance, the logs could be buffered. And printed in batches.
-        println("${OffsetDateTime.now()} [$name] - $eventName - ${HashMap(data).apply { putAll(context.get() ?: emptyMap()) }}")
+        val logData = mutableMapOf<String, Any?>("logger" to name).apply {
+            putAll(data)
+            putAll(context.get() ?: emptyMap())
+        }
+        println("${OffsetDateTime.now()} - $eventName - $logData")
     }
 
     override fun useContext(key: String, value: String, block: () -> Unit) {
