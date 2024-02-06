@@ -1,10 +1,10 @@
 import fulltextsearch.FullTextSearch
 import fulltextsearch.InMemoryFullTextSearch
 import fulltextsearch.WordTokenizer
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import parsejson.parseJson
+import utils.unzip
+import utils.withDefer
 import kotlin.io.path.Path
 import kotlin.io.path.forEachLine
 import kotlin.test.assertEquals
@@ -12,22 +12,7 @@ import kotlin.test.assertTrue
 
 class FullTextSearchTest {
 
-    companion object {
-        private fun getZipFileStream() = Companion::class.java.getResourceAsStream("fulltextsearch/test.jsonl.zip")!!
-
-        @JvmStatic
-        @BeforeAll
-        fun prepare() {
-            cleanup()
-            getZipFileStream().use { unzip(it) }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun cleanup() {
-            getZipFileStream().use { cleanupUnzipped(it) }
-        }
-    }
+    private fun getZipFileStream() = FullTextSearchTest::class.java.getResourceAsStream("fulltextsearch/test.jsonl.zip")!!
 
     @Test
     fun canProcessLargeFile() {
@@ -38,14 +23,18 @@ class FullTextSearchTest {
         )
         val searchEngine = InMemoryFullTextSearch(tokenizer)
 
-        Path("test.jsonl").forEachLine { line ->
-            val parsed = parseJson(line) as Map<String, String>
-            searchEngine.insert(
-                FullTextSearch.Entry(
-                    indexedText = "${parsed["title"]} ${parsed["abstract"]}",
-                    document = parsed
+        withDefer {
+            unzip(::getZipFileStream)
+
+            Path("test.jsonl").forEachLine { line ->
+                val parsed = parseJson(line) as Map<String, String>
+                searchEngine.insert(
+                    FullTextSearch.Entry(
+                        indexedText = "${parsed["title"]} ${parsed["abstract"]}",
+                        document = parsed
+                    )
                 )
-            )
+            }
         }
 
         // When

@@ -1,8 +1,10 @@
 import compress.CompressCli
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import utils.captureStreams
+import utils.unzip
+import utils.usingTempFile
+import utils.withDefer
 import java.io.File
 import java.nio.file.Files
 import kotlin.io.path.*
@@ -11,22 +13,7 @@ import kotlin.test.assertTrue
 
 class CompressTest {
 
-    companion object {
-        private fun getZipFileStream() = Companion::class.java.getResourceAsStream("compress/test.zip")!!
-
-        @JvmStatic
-        @BeforeAll
-        fun prepare() {
-            cleanup()
-            getZipFileStream().use { unzip(it) }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun cleanup() {
-            getZipFileStream().use { cleanupUnzipped(it) }
-        }
-    }
+    private fun getZipFileStream() = CompressTest::class.java.getResourceAsStream("compress/test.zip")!!
 
     @AfterEach
     fun cleanupTestFiles() {
@@ -39,7 +26,10 @@ class CompressTest {
     @Test
     fun largeFile() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+
             // When
             CompressCli().main(listOf("test.txt"))
             CompressCli().main(listOf("-o", "test.txt.unzipped", "-u", "test.txt.minzip"))
@@ -60,106 +50,106 @@ class CompressTest {
     @Test
     fun emptyFile() {
         // Given
-        captureStreams { stdOut, stdErr ->
-            usingTempFile("") {
-                // When
-                CompressCli().main(listOf(it.pathString))
+        withDefer {
+            val (stdOut, stdErr) = captureStreams()
+            val tempFile = usingTempFile(content = "")
 
-                // Then
-                assertEquals("", stdOut.toString())
-                assertEquals("Received empty file. Nothing to do.\n", stdErr.toString())
-            }
+            // When
+            CompressCli().main(listOf(tempFile.pathString))
+
+            // Then
+            assertEquals("", stdOut.toString())
+            assertEquals("Received empty file. Nothing to do.\n", stdErr.toString())
         }
     }
 
     @Test
     fun smallFile() {
         // Given
-        captureStreams { stdOut, stdErr ->
-            usingTempFile("CABCABCD") { tempFile ->
-                // When
-                CompressCli().main(listOf(tempFile.name))
-                CompressCli().main(
-                    listOf(
-                        "--output",
-                        "${tempFile.name}.unzipped",
-                        "--unpack",
-                        "${tempFile.name}.minzip",
-                    )
-                )
+        withDefer {
+            val (stdOut, stdErr) = captureStreams()
+            val tempFile = usingTempFile(content = "CABCABCD")
 
-                // Then
-                // With small files and many distinct characters, the header causes file to increase in size
-                assertEquals(
-                    "${tempFile.name}.minzip (deflated to 488%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 21%)\n",
-                    stdOut.toString()
-                )
-                assertEquals("", stdErr.toString())
+            // When
+            CompressCli().main(listOf(tempFile.name))
+            CompressCli().main(listOf("--output", "${tempFile.name}.unzipped", "--unpack", "${tempFile.name}.minzip"))
 
-                assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
-                // With small files, the header causes file to increase in size
-                assertTrue(tempFile.toFile().length() < File("${tempFile.name}.minzip").length())
-            }
+            // Then
+            // With small files and many distinct characters, the header causes file to increase in size
+            assertEquals(
+                "${tempFile.name}.minzip (deflated to 488%)\n" +
+                        "${tempFile.name}.unzipped (inflated to 21%)\n",
+                stdOut.toString()
+            )
+            assertEquals("", stdErr.toString())
+
+            assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
+            // With small files, the header causes file to increase in size
+            assertTrue(tempFile.toFile().length() < File("${tempFile.name}.minzip").length())
         }
     }
 
     @Test
     fun singleCharacter() {
         // Given
-        captureStreams { stdOut, stdErr ->
-            usingTempFile("A".repeat(5000)) { tempFile ->
-                // When
-                CompressCli().main(listOf(tempFile.name))
-                CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
+        withDefer {
+            val (stdOut, stdErr) = captureStreams()
+            val tempFile = usingTempFile(content = "A".repeat(5000))
 
-                // Then
-                assertEquals(
-                    "${tempFile.name}.minzip (deflated to 13%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 772%)\n",
-                    stdOut.toString()
-                )
-                assertEquals("", stdErr.toString())
+            // When
+            CompressCli().main(listOf(tempFile.name))
+            CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
 
-                Files.readAllBytes(tempFile)
+            // Then
+            assertEquals(
+                "${tempFile.name}.minzip (deflated to 13%)\n" +
+                        "${tempFile.name}.unzipped (inflated to 772%)\n",
+                stdOut.toString()
+            )
+            assertEquals("", stdErr.toString())
 
-                assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
-                assertTrue(tempFile.toFile().length() > File("${tempFile.name}.minzip").length())
-            }
+            Files.readAllBytes(tempFile)
+
+            assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
+            assertTrue(tempFile.toFile().length() > File("${tempFile.name}.minzip").length())
         }
     }
 
     @Test
     fun nonText() {
         // Given
-        captureStreams { stdOut, stdErr ->
-            usingTempFile(ByteArray(5000).mapIndexed { index, _ -> index.toByte() }.toByteArray()) { tempFile ->
-                // When
-                CompressCli().main(listOf(tempFile.name))
-                CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
+        withDefer {
+            val (stdOut, stdErr) = captureStreams()
+            val tempFile = usingTempFile(
+                content = ByteArray(5000).mapIndexed { index, _ -> index.toByte() }.toByteArray()
+            )
 
-                // Then
-                assertEquals(
-                    "${tempFile.name}.minzip (deflated to 73%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 269%)\n",
-                    stdOut.toString()
-                )
-                assertEquals("", stdErr.toString())
+            // When
+            CompressCli().main(listOf(tempFile.name))
+            CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
 
-                Files.readAllBytes(tempFile)
+            // Then
+            assertEquals(
+                "${tempFile.name}.minzip (deflated to 73%)\n" +
+                        "${tempFile.name}.unzipped (inflated to 269%)\n",
+                stdOut.toString()
+            )
+            assertEquals("", stdErr.toString())
 
-                assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
-                assertTrue(tempFile.toFile().length() > File("${tempFile.name}.minzip").length())
-            }
+            Files.readAllBytes(tempFile)
+
+            assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
+            assertTrue(tempFile.toFile().length() > File("${tempFile.name}.minzip").length())
         }
     }
 
     @Test
     fun withUTF8Characters() {
         // Given
-        captureStreams { stdOut, stdErr ->
-            usingTempFile(
-                byteArrayOf(
+        withDefer {
+            val (stdOut, stdErr) = captureStreams()
+            val tempFile = usingTempFile(
+                content = byteArrayOf(
                     97, 44, // Valid ASCII
                     -61, -79, 44, // Valid 2 Octet Sequence
                     -61, 40, 44, // Invalid 2 Octet Sequence
@@ -172,27 +162,26 @@ class CompressTest {
                     -16, -112, 40, -68, 44, // Invalid 4 Octet Sequence (in 3rd Octet)
                     -16, 40, -116, 40, 44 // Invalid 4 Octet Sequence (in 4th Octet)
                 )
-            ) { tempFile ->
-                // When
-                CompressCli().main(listOf(tempFile.name))
-                CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
+            )
 
-                // Then
-                // With small files and many distinct characters, the header causes file to increase in size
-                assertEquals(
-                    "${tempFile.name}.minzip (deflated to 167%)\n" +
-                            "${tempFile.name}.unzipped (inflated to 93%)\n",
-                    stdOut.toString()
-                )
-                assertEquals("", stdErr.toString())
+            // When
+            CompressCli().main(listOf(tempFile.name))
+            CompressCli().main(listOf("-o", "${tempFile.name}.unzipped", "-u", "${tempFile.name}.minzip"))
 
-                Files.readAllBytes(tempFile)
+            // Then
+            // With small files and many distinct characters, the header causes file to increase in size
+            assertEquals(
+                "${tempFile.name}.minzip (deflated to 167%)\n" +
+                        "${tempFile.name}.unzipped (inflated to 93%)\n",
+                stdOut.toString()
+            )
+            assertEquals("", stdErr.toString())
 
-                assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
-                // With small files and many distinct characters, the header causes file to increase in size
-                assertTrue(tempFile.toFile().length() < File("${tempFile.name}.minzip").length())
-            }
+            Files.readAllBytes(tempFile)
+
+            assertEquals(tempFile.toFile().readText(), File("${tempFile.name}.unzipped").readText())
+            // With small files and many distinct characters, the header causes file to increase in size
+            assertTrue(tempFile.toFile().length() < File("${tempFile.name}.minzip").length())
         }
     }
-
 }

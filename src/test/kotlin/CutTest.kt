@@ -1,46 +1,24 @@
 import cut.CutCli
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import utils.captureStreams
+import utils.unzip
+import utils.usingTempFile
+import utils.withDefer
 import java.io.File
-import kotlin.io.path.Path
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.test.assertEquals
 
 class CutTest {
 
-    companion object {
-        private fun getZipFileStream() = Companion::class.java.getResourceAsStream("cut/cut.zip")!!
-
-        @JvmStatic
-        @BeforeAll
-        fun prepare() {
-            cleanup()
-            getZipFileStream().use { unzip(it) }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun cleanup() {
-            getZipFileStream().use { cleanupUnzipped(it) }
-        }
-    }
-
-    @AfterEach
-    fun cleanupTestFiles() {
-        Path("")
-            .listDirectoryEntries()
-            .filter { it.name.endsWith("test.csv") }
-            .forEach { it.deleteIfExists() }
-    }
+    private fun getZipFileStream() = CutTest::class.java.getResourceAsStream("cut/cut.zip")!!
 
     @Test
     fun simpleField() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+
             // When
             CutCli().main(listOf("-f", "1", "sample.tsv"))
 
@@ -53,7 +31,10 @@ class CutTest {
     @Test
     fun simpleDifferentField() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+
             // When
             CutCli().main(listOf("-f", "2", "sample.tsv"))
 
@@ -66,7 +47,10 @@ class CutTest {
     @Test
     fun multipleFields() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+
             // When
             CutCli().main(listOf("-f", "1,2", "sample.tsv"))
 
@@ -82,7 +66,10 @@ class CutTest {
     @Test
     fun differentDelimiter() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+
             // When
             CutCli().main(listOf("-f", "1", "-d", ",", "fourchords.csv"))
 
@@ -109,17 +96,18 @@ class CutTest {
     @Test
     fun multipleFieldsAndDifferentDelimiter() {
         // Given
-        // File is deleted using @AfterEach
-        File("complex.test.csv").bufferedWriter().use { writer ->
-            File("fourchords.csv").readLines().take(5).forEach { line ->
-                writer.write(line)
-                writer.write("\n")
-            }
-        }
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+            val tempFile = usingTempFile(content =
+                File("fourchords.csv")
+                    .readLines()
+                    .take(5)
+                    .joinToString("\n")
+            )
 
-        captureStreams { stdOut, stdErr ->
             // When
-            CutCli().main(listOf("-f", "1,2", "-d", ",", "complex.test.csv"))
+            CutCli().main(listOf("-f", "1,2", "-d", ",", tempFile.name))
 
             // Then
             assertEquals(
@@ -144,15 +132,16 @@ class CutTest {
     @Test
     fun readFromStream() {
         // Given
-        // File is deleted using @AfterEach
-        File("stream.test.csv").bufferedWriter().use { writer ->
-            File("fourchords.csv").readLines().takeLast(5).forEach { line ->
-                writer.write(line)
-                writer.write("\n")
-            }
-        }
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams(
+                newStdIn = File("fourchords.csv")
+                    .readLines()
+                    .takeLast(5)
+                    .joinToString("\n")
+                    .byteInputStream()
+            )
 
-        captureStreams(newStdIn = File("stream.test.csv").inputStream()) { stdOut, stdErr ->
             // When
             CutCli().main(listOf("-f", "1,2", "-d", ","))
 
@@ -179,7 +168,10 @@ class CutTest {
     @Test
     fun readWholeCsv() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
+
             // When
             CutCli().main(listOf("-f", "2", "-d", ",", "fourchords.csv"))
 
@@ -188,5 +180,4 @@ class CutTest {
             assertEquals("", stdErr.toString())
         }
     }
-
 }

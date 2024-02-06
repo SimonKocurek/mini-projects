@@ -1,36 +1,23 @@
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import utils.captureStreams
+import utils.unzip
+import utils.withDefer
 import wordcount.WordCountCli
-import java.io.BufferedInputStream
-import java.nio.file.Files
 import kotlin.io.path.Path
+import kotlin.io.path.inputStream
 import kotlin.test.assertEquals
 
 
 class WordCountTest {
 
-    companion object {
-        private fun getZipFileStream() = Companion::class.java.getResourceAsStream("wordcount/test.txt.zip")!!
-
-        @JvmStatic
-        @BeforeAll
-        fun prepare() {
-            cleanup()
-            getZipFileStream().use { unzip(it) }
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun cleanup() {
-            getZipFileStream().use { cleanupUnzipped(it) }
-        }
-    }
+    private fun getZipFileStream() = WordCountTest::class.java.getResourceAsStream("wordcount/test.txt.zip")!!
 
     @Test
     fun readBytes() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
 
             // When
             WordCountCli().main(listOf("-c", "test.txt"))
@@ -44,7 +31,9 @@ class WordCountTest {
     @Test
     fun readLines() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
 
             // When
             WordCountCli().main(listOf("-l", "test.txt"))
@@ -58,7 +47,9 @@ class WordCountTest {
     @Test
     fun readWords() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
 
             // When
             WordCountCli().main(listOf("-w", "test.txt"))
@@ -72,7 +63,9 @@ class WordCountTest {
     @Test
     fun readCharsUtf() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
 
             // When
             WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-8"))
@@ -86,7 +79,9 @@ class WordCountTest {
     @Test
     fun readCharsUtf16() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
 
             // When
             WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-16"))
@@ -100,7 +95,9 @@ class WordCountTest {
     @Test
     fun readWithoutFlags() {
         // Given
-        captureStreams { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val (stdOut, stdErr) = captureStreams()
 
             // When
             WordCountCli().main(listOf("test.txt", "--charset", "UTF-8"))
@@ -114,18 +111,18 @@ class WordCountTest {
     @Test
     fun readStreamWithoutFlags() {
         // Given
-        Files.newInputStream(Path("test.txt")).use { fileStream ->
-            BufferedInputStream(fileStream).use { bufferedStream ->
-                captureStreams(bufferedStream) { stdOut, stdErr ->
+        withDefer {
+            unzip(::getZipFileStream)
+            val bufferedStream = Path("test.txt").inputStream().buffered()
+            defer { bufferedStream.close() }
+            val (stdOut, stdErr) = captureStreams(newStdIn = bufferedStream)
 
-                    // When
-                    WordCountCli().main(listOf("--charset", "UTF-8"))
+            // When
+            WordCountCli().main(listOf("--charset", "UTF-8"))
 
-                    // Then
-                    assertEquals("7145 58164 342190\n", stdOut.toString())
-                    assertEquals("", stdErr.toString())
-                }
-            }
+            // Then
+            assertEquals("7145 58164 342190\n", stdOut.toString())
+            assertEquals("", stdErr.toString())
         }
     }
 }
