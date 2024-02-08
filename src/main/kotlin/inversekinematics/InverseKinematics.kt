@@ -6,7 +6,7 @@ import kotlin.math.*
  * Solver using Cyclic Coordinate Descent algorithm to find the rotations
  * of arms to reach certain point.
  */
-class InverseKinematics {
+internal class InverseKinematics {
 
     /**
      * Tries to rotate bones/arms to reach the desired destination.

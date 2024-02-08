@@ -21,7 +21,7 @@ fun main(args: Array<String>) {
     }
 }
 
-class InverseKinematicsGui(
+private class InverseKinematicsGui(
     inverseKinematics: InverseKinematics,
     boneChain: BoneChain
 ) : JFrame("Inverse Kinematics Demo") {

@@ -9,7 +9,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-class InverseKinematicsGuiPaintPanel(
+internal class InverseKinematicsGuiPaintPanel(
     private val inverseKinematics: InverseKinematics,
     private val bufferedImage: BufferedImage,
     private val boneChain: BoneChain

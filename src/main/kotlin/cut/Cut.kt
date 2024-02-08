@@ -2,7 +2,7 @@ package cut
 
 import java.io.BufferedReader
 
-class Cut {
+internal class Cut {
 
     fun printFields(reader: BufferedReader, fields: List<Int>, delimiter: String) {
         reader.lineSequence().forEach outputLine@{ line ->

@@ -10,7 +10,7 @@ fun main(args: Array<String>) {
     CutCli().main(args)
 }
 
-class CutCli : CliktCommand(
+internal class CutCli : CliktCommand(
     name = "cut",
     help = """
         Cut out selected portions of each line of a file.

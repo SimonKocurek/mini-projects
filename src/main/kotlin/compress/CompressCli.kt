@@ -13,7 +13,7 @@ fun main(args: Array<String>) {
     CompressCli().main(args)
 }
 
-class CompressCli : CliktCommand(
+internal class CompressCli : CliktCommand(
     name = "compress",
     help = """
         Pack files to decrease their size.
