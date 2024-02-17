@@ -7,7 +7,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
-import java.net.URL
+import java.net.URI
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -59,7 +59,7 @@ class LoadBalancerCli : CliktCommand(
         help = "Number of seconds when no traffic will be sent to an unhealthy downstream server. " +
                 "Downstream server is marked as unhealthy if establishing a connection to it fails. " +
                 "Default: 60."
-    ).int().default(60)
+    ).long().default(60)
 
     private val downstreamServers by argument(
         name = "downstream servers",
@@ -71,7 +71,7 @@ class LoadBalancerCli : CliktCommand(
 
     override fun run() {
         val loadBalancer = RoundRobinLoadBalancer(
-            downstreamServers = downstreamServers.map { URL(it) },
+            downstreamServers = downstreamServers.map { URI(it) },
             recoveryTimeoutSeconds = loadBalancingRecoveryTimeout
         )
         val requestHandler = LoadBalancedRequestHandler(
