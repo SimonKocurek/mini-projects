@@ -35,7 +35,7 @@ internal class RoundRobinLoadBalancer(
         // of just returning the next one (which might be unhealthy).
         for (i in 1..downstreamServers.size) {
             val nextServerIndex =
-                currentServer.accumulateAndGet(1) { previous, increment -> (previous + increment) % downstreamServers.size }
+                currentServer.getAndAccumulate(1) { previous, increment -> (previous + increment) % downstreamServers.size }
             val serverUri = downstreamServers[nextServerIndex]
 
             val serverTimeout = timedOutServers[serverUri]
