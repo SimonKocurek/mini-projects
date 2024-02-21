@@ -14,9 +14,10 @@ class CharacterBitmapper(
      * Create a bitmap for the provided character. Rendered with antialiasing in black on white.
      *
      * @param character Any valid UTF-8 character.
+     * @param fontName Name of the font to use when rendering characters.
      * @param fontSize Font size of the character in the resulting bitmap.
      */
-    internal fun get(character: Char, fontSize: Int): BufferedImage {
+    internal fun get(character: Char, fontName: String, fontSize: Int): BufferedImage {
         logger.log(
             "converting character to bitmap", mapOf(
                 "character" to character.toString(),
@@ -24,11 +25,11 @@ class CharacterBitmapper(
             )
         )
 
-        val dimensions = findCharacterDimensions(character, fontSize)
-        return textToImage(character.toString(), fontSize, dimensions)
+        val dimensions = findCharacterDimensions(character, fontName, fontSize)
+        return textToImage(character.toString(), fontName, fontSize, dimensions)
     }
 
-    private fun textToImage(text: String, fontSize: Int, dimensions: CharacterDimensions): BufferedImage {
+    private fun textToImage(text: String, fontName: String, fontSize: Int, dimensions: CharacterDimensions): BufferedImage {
         val image = BufferedImage(dimensions.width, dimensions.height, BufferedImage.TYPE_INT_RGB)
         val graphics = image.createGraphics()
 
@@ -40,7 +41,7 @@ class CharacterBitmapper(
         graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
         graphics.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE)
 
-        graphics.font = getMonospaceFont(fontSize)
+        graphics.font = Font(fontName, Font.PLAIN, fontSize)
         graphics.color = Color.BLACK
         graphics.drawString(text, 0, graphics.fontMetrics.ascent)
         graphics.dispose()
@@ -48,13 +49,13 @@ class CharacterBitmapper(
         return image
     }
 
-    private fun findCharacterDimensions(character: Char, fontSize: Int): CharacterDimensions {
+    private fun findCharacterDimensions(character: Char, fontName: String, fontSize: Int): CharacterDimensions {
         // We need an image only so that we can generate a graphics object
         // and figure out dimensions of the text.
-        val image = BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB)
+        val image = BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB)
         val graphics = image.createGraphics()
 
-        graphics.font = getMonospaceFont(fontSize)
+        graphics.font = Font(fontName, Font.PLAIN, fontSize)
         graphics.dispose()
 
         return CharacterDimensions(
@@ -62,8 +63,6 @@ class CharacterBitmapper(
             height = graphics.fontMetrics.height,
         )
     }
-
-    private fun getMonospaceFont(fontSize: Int) = Font(Font.MONOSPACED, Font.PLAIN, fontSize)
 
     private data class CharacterDimensions(val width: Int, val height: Int)
 }

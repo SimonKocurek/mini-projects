@@ -13,6 +13,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
     implementation("com.github.ajalt.clikt:clikt:4.2.1")
     testImplementation(kotlin("test"))
 }

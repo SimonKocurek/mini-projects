@@ -9,9 +9,9 @@ class AsciiFilterAlphabetFactory(
     private val normalizer: AlphabetBrightnessNormalizer,
 ) {
 
-    suspend fun create(alphabetCharacters: String, fontSize: Int) = coroutineScope {
+    suspend fun create(alphabetCharacters: String, fontName: String, fontSize: Int) = coroutineScope {
         val characterToBitmap = alphabetCharacters.associateWith { character ->
-            async { bitmapper.get(character, fontSize) }
+            async { bitmapper.get(character, fontName, fontSize) }
         }.mapValues { (_, coroutine) -> coroutine.await() }
 
         val averageAspectRatio =

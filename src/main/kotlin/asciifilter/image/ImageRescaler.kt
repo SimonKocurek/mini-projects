@@ -29,7 +29,9 @@ class ImageRescaler {
         val scaledBufferedImage = BufferedImage(
             rescaledImage.getWidth(null),
             rescaledImage.getHeight(null),
-            BufferedImage.TYPE_INT_RGB
+            // We can't throw away the Alpha channel just yet, as
+            // it might be used during brightness normalization.
+            image.type
         )
         val graphics = scaledBufferedImage.createGraphics()
         graphics.drawImage(rescaledImage, 0, 0, null)
