@@ -1,5 +1,6 @@
 package loadbalancer
 
+import utils.LoggerFactory
 import java.net.URI
 import java.time.OffsetDateTime
 import java.util.concurrent.ConcurrentHashMap

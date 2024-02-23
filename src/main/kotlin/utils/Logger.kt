@@ -1,16 +1,21 @@
-package loadbalancer
+package utils
 
 import java.time.OffsetDateTime
 import kotlin.concurrent.getOrSet
 
-internal object LoggerFactory {
-    fun create(name: String): Logger = ConsoleLogger(name)
+object LoggerFactory {
+    fun create(name: String, enabled: Boolean = true): Logger = if (enabled) ConsoleLogger(name) else NullLogger()
 }
 
-internal interface Logger {
+interface Logger {
     fun log(eventName: String, data: Map<String, Any?> = emptyMap())
 
     fun useContext(key: String, value: String, block: () -> Unit)
+}
+
+private class NullLogger : Logger {
+    override fun log(eventName: String, data: Map<String, Any?>) {}
+    override fun useContext(key: String, value: String, block: () -> Unit) {}
 }
 
 private class ConsoleLogger(private val name: String) : Logger {

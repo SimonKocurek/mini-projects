@@ -2,6 +2,7 @@ package loadbalancer
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import utils.LoggerFactory
 import java.net.InetSocketAddress
 import java.util.UUID
 import java.util.concurrent.ThreadPoolExecutor

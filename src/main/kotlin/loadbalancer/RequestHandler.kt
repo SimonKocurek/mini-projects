@@ -1,6 +1,7 @@
 package loadbalancer
 
 import sun.net.www.protocol.http.HttpURLConnection
+import utils.LoggerFactory
 import java.io.IOException
 import java.io.InputStream
 import java.net.URI
