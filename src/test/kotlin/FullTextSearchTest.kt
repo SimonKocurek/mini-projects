@@ -12,10 +12,11 @@ import kotlin.test.assertTrue
 
 class FullTextSearchTest {
 
-    private fun getZipFileStream() = FullTextSearchTest::class.java.getResourceAsStream("fulltextsearch/test.jsonl.zip")!!
+    private fun getZipFileStream() =
+        FullTextSearchTest::class.java.getResourceAsStream("fulltextsearch/test.jsonl.zip")!!
 
     @Test
-    fun canProcessLargeFile() {
+    fun canProcessLargeFile() = withDefer {
         // Given
         val tokenizer = WordTokenizer(
             stopWords = setOf("a", "and", "be", "have", "i", "in", "of", "that", "the", "to"),
@@ -23,18 +24,16 @@ class FullTextSearchTest {
         )
         val searchEngine = InMemoryFullTextSearch(tokenizer)
 
-        withDefer {
-            unzip(::getZipFileStream)
+        unzip(::getZipFileStream)
 
-            Path("test.jsonl").forEachLine { line ->
-                val parsed = parseJson(line) as Map<String, String>
-                searchEngine.insert(
-                    FullTextSearch.Entry(
-                        indexedText = "${parsed["title"]} ${parsed["abstract"]}",
-                        document = parsed
-                    )
+        Path("test.jsonl").forEachLine { line ->
+            val parsed = parseJson(line) as Map<String, String>
+            searchEngine.insert(
+                FullTextSearch.Entry(
+                    indexedText = "${parsed["title"]} ${parsed["abstract"]}",
+                    document = parsed
                 )
-            }
+            )
         }
 
         // When

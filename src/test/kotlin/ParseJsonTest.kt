@@ -16,49 +16,45 @@ class ParseJsonTest {
     private fun getZipFileStream() = ParseJsonTest::class.java.getResourceAsStream("parsejson/test.zip")!!
 
     @Test
-    fun errorOnInvalidJson() {
+    fun errorOnInvalidJson() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val filePaths = Files
-                .list(Path("test"))
-                .filter { it.name.startsWith("fail") }
-                .toList()
+        unzip(::getZipFileStream)
+        val filePaths = Files
+            .list(Path("test"))
+            .filter { it.name.startsWith("fail") }
+            .toList()
 
-            filePaths.forEach { filePath ->
-                val fileContent = Files.readAllLines(filePath).joinToString(System.lineSeparator())
+        filePaths.forEach { filePath ->
+            val fileContent = Files.readAllLines(filePath).joinToString(System.lineSeparator())
 
-                // When, Then
-                assertThrows<JsonParsingException>("Parsing should have failed for JSON (file $filePath): $fileContent") {
-                    parseJson(fileContent)
-                }
+            // When, Then
+            assertThrows<JsonParsingException>("Parsing should have failed for JSON (file $filePath): $fileContent") {
+                parseJson(fileContent)
             }
-
-            assertTrue(filePaths.isNotEmpty(), "Some file paths should be processed. Was the test correctly set up?")
         }
+
+        assertTrue(filePaths.isNotEmpty(), "Some file paths should be processed. Was the test correctly set up?")
     }
 
     @Test
-    fun passOnValidJson() {
+    fun passOnValidJson() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val filePaths = Files
-                .list(Path("test"))
-                .filter { it.name.startsWith("pass") }
-                .toList()
+        unzip(::getZipFileStream)
+        val filePaths = Files
+            .list(Path("test"))
+            .filter { it.name.startsWith("pass") }
+            .toList()
 
-            filePaths.forEach { filePath ->
-                val fileContent = Files.readAllLines(filePath).joinToString(System.lineSeparator())
+        filePaths.forEach { filePath ->
+            val fileContent = Files.readAllLines(filePath).joinToString(System.lineSeparator())
 
-                // When, Then
-                assertDoesNotThrow("Parsing should have passed for JSON (file $filePath): $fileContent") {
-                    parseJson(fileContent)
-                }
+            // When, Then
+            assertDoesNotThrow("Parsing should have passed for JSON (file $filePath): $fileContent") {
+                parseJson(fileContent)
             }
-
-            assertTrue(filePaths.isNotEmpty(), "Some file paths should be processed. Was the test correctly set up?")
         }
+
+        assertTrue(filePaths.isNotEmpty(), "Some file paths should be processed. Was the test correctly set up?")
     }
 
     @Test

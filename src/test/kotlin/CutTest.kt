@@ -13,171 +13,158 @@ class CutTest {
     private fun getZipFileStream() = CutTest::class.java.getResourceAsStream("cut/cut.zip")!!
 
     @Test
-    fun simpleField() {
+    fun simpleField() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            CutCli().main(listOf("-f", "1", "sample.tsv"))
+        // When
+        CutCli().main(listOf("-f", "1", "sample.tsv"))
 
-            // Then
-            assertEquals(listOf("f0", "0", "5", "10", "15", "20").joinToString("") { "$it\n" }, stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(listOf("f0", "0", "5", "10", "15", "20").joinToString("") { "$it\n" }, stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun simpleDifferentField() {
+    fun simpleDifferentField() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            CutCli().main(listOf("-f", "2", "sample.tsv"))
+        // When
+        CutCli().main(listOf("-f", "2", "sample.tsv"))
 
-            // Then
-            assertEquals(listOf("f1", "1", "6", "11", "16", "21").joinToString("") { "$it\n" }, stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(listOf("f1", "1", "6", "11", "16", "21").joinToString("") { "$it\n" }, stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun multipleFields() {
+    fun multipleFields() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            CutCli().main(listOf("-f", "1,2", "sample.tsv"))
+        // When
+        CutCli().main(listOf("-f", "1,2", "sample.tsv"))
 
-            // Then
-            assertEquals(
-                listOf("f0\tf1", "0\t1", "5\t6", "10\t11", "15\t16", "20\t21").joinToString("") { "$it\n" },
-                stdOut.toString()
-            )
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(
+            listOf("f0\tf1", "0\t1", "5\t6", "10\t11", "15\t16", "20\t21").joinToString("") { "$it\n" },
+            stdOut.toString()
+        )
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun differentDelimiter() {
+    fun differentDelimiter() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            CutCli().main(listOf("-f", "1", "-d", ",", "fourchords.csv"))
+        // When
+        CutCli().main(listOf("-f", "1", "-d", ",", "fourchords.csv"))
 
-            // Then
-            assertEquals(
-                listOf(
-                    "Song title",
-                    "\"10000 Reasons (Bless the Lord)\"",
-                    "\"20 Good Reasons\"",
-                    "\"Adore You\"",
-                    "\"Africa\""
-                ).joinToString("") { "$it\n" },
-                stdOut
-                    .toString()
-                    .replace("\uFEFF", "") // Remove UTF-8 BOM
-                    .split("\n")
-                    .take(5)
-                    .joinToString("") { "$it\n" }
-            )
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(
+            listOf(
+                "Song title",
+                "\"10000 Reasons (Bless the Lord)\"",
+                "\"20 Good Reasons\"",
+                "\"Adore You\"",
+                "\"Africa\""
+            ).joinToString("") { "$it\n" },
+            stdOut
+                .toString()
+                .replace("\uFEFF", "") // Remove UTF-8 BOM
+                .split("\n")
+                .take(5)
+                .joinToString("") { "$it\n" }
+        )
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun multipleFieldsAndDifferentDelimiter() {
+    fun multipleFieldsAndDifferentDelimiter() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
-            val tempFile = usingTempFile(content =
-                File("fourchords.csv")
-                    .readLines()
-                    .take(5)
-                    .joinToString("\n")
-            )
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
+        val tempFile = usingTempFile(
+            content =
+            File("fourchords.csv")
+                .readLines()
+                .take(5)
+                .joinToString("\n")
+        )
 
-            // When
-            CutCli().main(listOf("-f", "1,2", "-d", ",", tempFile.name))
+        // When
+        CutCli().main(listOf("-f", "1,2", "-d", ",", tempFile.name))
 
-            // Then
-            assertEquals(
-                listOf(
-                    "Song title,Artist",
-                    "\"10000 Reasons (Bless the Lord)\",Matt Redman and Jonas Myrin",
-                    "\"20 Good Reasons\",Thirsty Merc",
-                    "\"Adore You\",Harry Styles",
-                    "\"Africa\",Toto"
-                ).joinToString("") { "$it\n" },
-                stdOut
-                    .toString()
-                    .replace("\uFEFF", "") // Remove UTF-8 BOM
-                    .split("\n")
-                    .take(5)
-                    .joinToString("") { "$it\n" }
-            )
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(
+            listOf(
+                "Song title,Artist",
+                "\"10000 Reasons (Bless the Lord)\",Matt Redman and Jonas Myrin",
+                "\"20 Good Reasons\",Thirsty Merc",
+                "\"Adore You\",Harry Styles",
+                "\"Africa\",Toto"
+            ).joinToString("") { "$it\n" },
+            stdOut
+                .toString()
+                .replace("\uFEFF", "") // Remove UTF-8 BOM
+                .split("\n")
+                .take(5)
+                .joinToString("") { "$it\n" }
+        )
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readFromStream() {
+    fun readFromStream() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams(
-                newStdIn = File("fourchords.csv")
-                    .readLines()
-                    .takeLast(5)
-                    .joinToString("\n")
-                    .byteInputStream()
-            )
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams(
+            newStdIn = File("fourchords.csv")
+                .readLines()
+                .takeLast(5)
+                .joinToString("\n")
+                .byteInputStream()
+        )
 
-            // When
-            CutCli().main(listOf("-f", "1,2", "-d", ","))
+        // When
+        CutCli().main(listOf("-f", "1,2", "-d", ","))
 
-            // Then
-            assertEquals(
-                listOf(
-                    "\"Young Volcanoes\",Fall Out Boy",
-                    "\"You Found Me\",The Fray",
-                    "\"You'll Think Of Me\",Keith Urban",
-                    "\"You're Not Sorry\",Taylor Swift",
-                    "\"Zombie\",The Cranberries"
-                ).joinToString("") { "$it\n" },
-                stdOut
-                    .toString()
-                    .replace("\uFEFF", "") // Remove UTF-8 BOM
-                    .split("\n")
-                    .take(5)
-                    .joinToString("") { "$it\n" }
-            )
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(
+            listOf(
+                "\"Young Volcanoes\",Fall Out Boy",
+                "\"You Found Me\",The Fray",
+                "\"You'll Think Of Me\",Keith Urban",
+                "\"You're Not Sorry\",Taylor Swift",
+                "\"Zombie\",The Cranberries"
+            ).joinToString("") { "$it\n" },
+            stdOut
+                .toString()
+                .replace("\uFEFF", "") // Remove UTF-8 BOM
+                .split("\n")
+                .take(5)
+                .joinToString("") { "$it\n" }
+        )
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readWholeCsv() {
+    fun readWholeCsv() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            CutCli().main(listOf("-f", "2", "-d", ",", "fourchords.csv"))
+        // When
+        CutCli().main(listOf("-f", "2", "-d", ",", "fourchords.csv"))
 
-            // Then
-            assertEquals(157, stdOut.toString().lineSequence().count())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals(157, stdOut.toString().lineSequence().count())
+        assertEquals("", stdErr.toString())
     }
 }

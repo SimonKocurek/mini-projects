@@ -13,116 +13,102 @@ class WordCountTest {
     private fun getZipFileStream() = WordCountTest::class.java.getResourceAsStream("wordcount/test.txt.zip")!!
 
     @Test
-    fun readBytes() {
+    fun readBytes() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            WordCountCli().main(listOf("-c", "test.txt"))
+        // When
+        WordCountCli().main(listOf("-c", "test.txt"))
 
-            // Then
-            assertEquals("342190 test.txt\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("342190 test.txt\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readLines() {
+    fun readLines() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            WordCountCli().main(listOf("-l", "test.txt"))
+        // When
+        WordCountCli().main(listOf("-l", "test.txt"))
 
-            // Then
-            assertEquals("7145 test.txt\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("7145 test.txt\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readWords() {
+    fun readWords() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            WordCountCli().main(listOf("-w", "test.txt"))
+        // When
+        WordCountCli().main(listOf("-w", "test.txt"))
 
-            // Then
-            assertEquals("58164 test.txt\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("58164 test.txt\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readCharsUtf() {
+    fun readCharsUtf() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-8"))
+        // When
+        WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-8"))
 
-            // Then
-            assertEquals("339292 test.txt\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("339292 test.txt\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readCharsUtf16() {
+    fun readCharsUtf16() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-16"))
+        // When
+        WordCountCli().main(listOf("-m", "test.txt", "--charset", "UTF-16"))
 
-            // Then
-            assertEquals("171095 test.txt\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("171095 test.txt\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readWithoutFlags() {
+    fun readWithoutFlags() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val (stdOut, stdErr) = captureStreams()
+        unzip(::getZipFileStream)
+        val (stdOut, stdErr) = captureStreams()
 
-            // When
-            WordCountCli().main(listOf("test.txt", "--charset", "UTF-8"))
+        // When
+        WordCountCli().main(listOf("test.txt", "--charset", "UTF-8"))
 
-            // Then
-            assertEquals("7145 58164 342190 test.txt\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("7145 58164 342190 test.txt\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 
     @Test
-    fun readStreamWithoutFlags() {
+    fun readStreamWithoutFlags() = withDefer {
         // Given
-        withDefer {
-            unzip(::getZipFileStream)
-            val bufferedStream = Path("test.txt").inputStream().buffered()
-            defer { bufferedStream.close() }
-            val (stdOut, stdErr) = captureStreams(newStdIn = bufferedStream)
+        unzip(::getZipFileStream)
+        val bufferedStream = Path("test.txt").inputStream().buffered()
+        defer { bufferedStream.close() }
+        val (stdOut, stdErr) = captureStreams(newStdIn = bufferedStream)
 
-            // When
-            WordCountCli().main(listOf("--charset", "UTF-8"))
+        // When
+        WordCountCli().main(listOf("--charset", "UTF-8"))
 
-            // Then
-            assertEquals("7145 58164 342190\n", stdOut.toString())
-            assertEquals("", stdErr.toString())
-        }
+        // Then
+        assertEquals("7145 58164 342190\n", stdOut.toString())
+        assertEquals("", stdErr.toString())
     }
 }
