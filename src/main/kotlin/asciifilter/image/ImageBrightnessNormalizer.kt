@@ -96,8 +96,8 @@ class ImageBrightnessNormalizer(
     }
 
     private fun brightnessToColor(brightness: Int): Int {
-        val maskedBrightness = brightness and 0b1111_1111
-        return maskedBrightness or (maskedBrightness shl 8) or (maskedBrightness shl 16)
+        val maskedBrightness = brightness and 0xFF
+        return maskedBrightness or (maskedBrightness shl 8) or (maskedBrightness shl 16) or (0xFF shl 24)
     }
 
     data class Limits(val min: Int, val max: Int)

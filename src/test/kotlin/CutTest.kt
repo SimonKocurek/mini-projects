@@ -95,7 +95,8 @@ class CutTest {
             File("fourchords.csv")
                 .readLines()
                 .take(5)
-                .joinToString("\n")
+                .joinToString("\n"),
+            suffix = "csv"
         )
 
         // When

@@ -112,7 +112,8 @@ class CompressTest {
         // Given
         val (stdOut, stdErr) = captureStreams()
         val tempFile = usingTempFile(
-            content = ByteArray(5000).mapIndexed { index, _ -> index.toByte() }.toByteArray()
+            content = ByteArray(5000).mapIndexed { index, _ -> index.toByte() }.toByteArray(),
+            suffix = "bytes"
         )
 
         // When
@@ -150,7 +151,8 @@ class CompressTest {
                 -16, 40, -116, -68, 44, // Invalid 4 Octet Sequence (in 2nd Octet)
                 -16, -112, 40, -68, 44, // Invalid 4 Octet Sequence (in 3rd Octet)
                 -16, 40, -116, 40, 44 // Invalid 4 Octet Sequence (in 4th Octet)
-            )
+            ),
+            suffix = "txt"
         )
 
         // When

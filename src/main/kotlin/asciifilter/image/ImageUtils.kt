@@ -12,10 +12,10 @@ fun BufferedImage.getBrightness(x: Int, y: Int): Int {
     // Colors are a packing of Alpha, Red, Green Blue,
     // where each value has 1 byte in the 4-byte Int.
     val pixel = Pixel(
-        a = if (colorModel.hasAlpha()) (colors ushr 24) and 0b1111_1111 else 0b1111_1111,
-        r = (colors ushr 16) and 0b1111_1111,
-        g = (colors ushr 8) and 0b1111_1111,
-        b = colors and 0b1111_1111
+        a = if (colorModel.hasAlpha()) (colors ushr 24) and 0xFF else 0xFF,
+        r = (colors ushr 16) and 0xFF,
+        g = (colors ushr 8) and 0xFF,
+        b = colors and 0xFF
     )
 
     return pixel.toBrightness()

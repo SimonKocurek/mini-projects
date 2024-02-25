@@ -129,7 +129,7 @@ internal class AsciiFilterCli : CliktCommand(
         val asciiImage = filter.convert(image, alphabet.characters)
 
         // Output
-        println(asciiImage)
+        print(asciiImage)
     }
 
 }
