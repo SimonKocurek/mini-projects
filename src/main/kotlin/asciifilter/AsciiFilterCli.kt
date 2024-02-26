@@ -12,6 +12,7 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.types.file
 import com.github.ajalt.clikt.parameters.types.int
 import kotlinx.coroutines.*
@@ -23,7 +24,7 @@ fun main(args: Array<String>) {
     AsciiFilterCli().main(args)
 }
 
-internal class AsciiFilterCli : CliktCommand(
+class AsciiFilterCli : CliktCommand(
     name = "asciifilter",
     help = """
         Convert images to ASCII art using any set of characters you choose.
@@ -83,7 +84,7 @@ internal class AsciiFilterCli : CliktCommand(
         "-w",
         "--width",
         help = "The number of character width of the result image. Default: 50"
-    ).int().default(100)
+    ).int().default(100).validate { it >= 0 }
 
     private val fontName by option(
         "-f",
@@ -105,7 +106,7 @@ internal class AsciiFilterCli : CliktCommand(
                 "Lower values will lead to faster startup and lower memory usage. " +
                 "However, lowering this too much will result in worse ASCII image quality. " +
                 "Default: 10"
-    ).int().default(10)
+    ).int().default(10).validate { it > 0 }
 
     override fun run() = runBlocking(Dispatchers.Default) {
         // Dependencies
