@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test
 import kotlin.math.roundToInt
 import kotlin.test.assertEquals
 
-class InverseKinematics {
+class InverseKinematicsTest {
 
     @Test
     fun canCalculateRelativeTargetVectors() {

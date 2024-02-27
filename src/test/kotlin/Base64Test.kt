@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 
-class Base64 {
+class Base64Test {
 
     @Test
     fun canEncodeEmptyValue() {
