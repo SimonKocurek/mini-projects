@@ -13,3 +13,4 @@ Collection of small projects from https://codingchallenges.fyi and my own ideas 
 - [asciifilter](src/main/kotlin/asciifilter) - Converter transforming images to [ASCII art](https://en.wikipedia.org/wiki/ASCII_art) (using an arbitrary character set).
 - [ratelimiter](src/main/kotlin/ratelimiter) - (Work in Progress)
 - [wavefunctioncollapse](src/main/kotlin/wavefunctioncollapse) - Generator of images that are locally similar to the input image. Based on [Maxim Gumin's](https://github.com/mxgmn/WaveFunctionCollapse) algorithm. (Work in Progress)
+- [dominantSignalFrequency](src/main/kotlin/dominantSignalFrequency) - Analyzes 3D accelerometer samples to find the strongest frequency present (can be used to detect user shaking)
