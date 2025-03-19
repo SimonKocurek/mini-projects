@@ -11,7 +11,7 @@ import kotlin.math.cos
  * This could be used to detect shaking of Alzheimer patients.
  */
 class DominantFrequencyDetector(
-    private val discardSamplesOlderThan: Duration = Duration.of(15, SECONDS),
+    private val discardSamplesOlderThan: Duration,
     private val minimumNeededSamples: Int = 10,
 ) {
 
@@ -91,6 +91,7 @@ class DominantFrequencyDetector(
         // Since we are doing the analysis only on a small window
         // from all possible samples over all the time, applying a
         // window function might help prevent spectral leakage.
+        // This function tapers off the samples at the edges of the window.
         val samples = hammingWindow()
 
         // Break the signal into sine waves in-place:
@@ -110,6 +111,9 @@ class DominantFrequencyDetector(
         fftZData: DoubleArray,
     ): Int {
         val magnitudesSquared = DoubleArray(fftXData.size / 2) { i ->
+            // Technically, there should also be a square root here,
+            // but it wouldn't affect the result of `maxBy` operation.
+            // So we can skip the operation.
             fftXData.magnitudeAt(i) + fftYData.magnitudeAt(i) + fftZData.magnitudeAt(i)
         }
 

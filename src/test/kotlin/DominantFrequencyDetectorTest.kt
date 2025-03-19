@@ -9,7 +9,9 @@ class DominantFrequencyDetectorTest {
 
     @Test
     fun `test single sine wave detection`() {
-        val detector = DominantFrequencyDetector()
+        val detector = DominantFrequencyDetector(
+            discardSamplesOlderThan = Duration.ofSeconds(15),
+        )
         val frequency = 6.0
         generateSineWave(
             frequency = frequency,
@@ -29,8 +31,10 @@ class DominantFrequencyDetectorTest {
     }
 
     @Test
-    fun `test multiple combined sine wave detection`() {
-        val detector = DominantFrequencyDetector()
+    fun `test multiple sine waves detection`() {
+        val detector = DominantFrequencyDetector(
+            discardSamplesOlderThan = Duration.ofSeconds(15),
+        )
         val highestMagnitude = 20.0
         val frequencyAtHighestMagnitude = 5.0
         val xSine = generateSineWave(
@@ -51,6 +55,39 @@ class DominantFrequencyDetectorTest {
                 x = xSine[i].acceleration,
                 y = ySine[i].acceleration,
                 z = zSine[i].acceleration,
+            )
+        }
+
+        val detectedFrequency = detector.getDominantFrequency()
+
+        assertEquals(frequencyAtHighestMagnitude, detectedFrequency!!, 0.2)
+    }
+
+    @Test
+    fun `test multiple sine waves combined in a single direction detection`() {
+        val detector = DominantFrequencyDetector(
+            discardSamplesOlderThan = Duration.ofSeconds(15),
+        )
+        val highestMagnitude = 50.0
+        val frequencyAtHighestMagnitude = 5.0
+        val lowerSine = generateSineWave(
+            frequency = 2.0,
+            magnitude = highestMagnitude / 8,
+        )
+        val dominantSine = generateSineWave(
+            frequency = frequencyAtHighestMagnitude,
+            magnitude = highestMagnitude,
+        )
+        val lowestSine = generateSineWave(
+            frequency = 2.0,
+            magnitude = highestMagnitude / 25,
+        )
+        lowerSine.indices.forEach { i ->
+            detector.addSample(
+                timestamp = lowerSine[i].timestamp,
+                x = lowerSine[i].acceleration + dominantSine[i].acceleration + lowestSine[i].acceleration,
+                y = 0.0,
+                z = 0.0,
             )
         }
 
