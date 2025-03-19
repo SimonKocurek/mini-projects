@@ -2,7 +2,6 @@ package dominantSignalFrequency
 
 import org.jtransforms.fft.DoubleFFT_1D
 import java.time.Duration
-import java.time.temporal.ChronoUnit.SECONDS
 import kotlin.math.cos
 
 /**
