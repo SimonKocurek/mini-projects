@@ -62,7 +62,6 @@ class DominantFrequencyDetector(
         return indexOfSineWaveWithMaxMagnitude * sineWaveToFrequency
     }
 
-
     // FFT relies on uniform time between samples.
     // Our samples are not guaranteed to be recorded in
     // uniform time intervals. So we will assume that
