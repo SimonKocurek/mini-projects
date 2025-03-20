@@ -7,7 +7,7 @@ import kotlin.math.cos
 /**
  * Detect the dominant frequency from accelerometer data.
  *
- * This could be used to detect shaking of Alzheimer patients.
+ * This could be used to detect shaking of Parkinson patients.
  */
 class DominantFrequencyDetector(
     private val discardSamplesOlderThan: Duration,

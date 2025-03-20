@@ -1,6 +1,6 @@
 # Dominant Signal Frequency
 
-This can detect user (possibly with Alzheimer's) shaking their fitness watch, 
+This can detect user (possibly with Parkinson's disease) shaking their fitness watch, 
 by analyzing the dominant frequency of the accelerometer data.
 
 ## Example usage
